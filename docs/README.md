@@ -9,7 +9,24 @@ Planning, product, and technical reference for Flower.
 
 ## Contents
 
+### Product
+
 - [Product overview](product/overview.md)
+- [How to read the spec set](product/spec-set.md)
+- [Tracker: copy exactly vs modernise](product/tracker-brief.md)
+- [Open questions](product/open-questions.md)
+
+### Feature specs
+
+- [Product spec (slices + acceptance criteria)](core-workflow/product-spec.md)
+- [UI](core-workflow/ui.md)
+- [Technical approach](core-workflow/technical-approach.md)
+- [Velocity and planning](velocity-planning/velocity-and-planning.md)
+- [Multitenancy](multitenancy/multitenancy.md)
+- [Agent API](agent-api/agent-api.md)
+
+### Reference
+
 - [Technology choices](reference/technology-choices.md)
 - [Development](reference/development.md)
 - [Frontend design guide](reference/frontend-design-guide.md)
