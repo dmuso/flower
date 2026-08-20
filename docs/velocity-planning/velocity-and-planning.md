@@ -124,8 +124,8 @@ These can make Current **over** velocity. Auto-plan never kicks them out.
 
 - **Never split a story.**
 - **Leave Current (and each future iteration) short** rather than overfill with the next estimated Feature.
-- **Start is the overflow valve.** Start on a Backlog or Icebox story jumps it to Current and **may** push Current over V. Icebox Start also unschedules→starts (Feature still needs an estimate).
-- **Oversized Feature (`cost > V`):** it never auto-fills into an iteration that already has Feature-points. It becomes the first (and only estimated) occupant of the next empty iteration — and that iteration is still **short of a second story** but **over** V after it is placed? Conflict.
+- **Start is the overflow valve.** Start on a Backlog or Icebox story jumps it to Current and **may** push Current over V. Icebox Start also unscheduled → started (Icebox start; Feature still needs an estimate).
+- **Oversized Feature (`cost > V`):** it never auto-fills into an iteration that already has Feature-points. It becomes the first (and only estimated) occupant of the next empty iteration — and that iteration is still **short of a second story** but **over** V after it is placed.
 
   Tracker: if a story is larger than velocity it still has to live somewhere. Copy: an estimated Feature with `cost > V` **is** placed into the next iteration that has **no** estimated Feature yet, and that iteration is marked **over velocity**. This is the one auto-plan exception to “leave short rather than overfill,” because the alternative is a story that never packs. Current: if Current already has Feature-points > 0, the oversized story does **not** enter Current via auto-plan (Start can still pull it). If Current has 0 Feature-points, the oversized story **does** enter Current and Current is over V.
 

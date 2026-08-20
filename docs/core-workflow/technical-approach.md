@@ -183,7 +183,7 @@ Cookie: `flower_session`, HttpOnly, SameSite=Lax, Path=/, Secure in production. 
 - `users.actor_kind VARCHAR(20) NOT NULL` default `human` (Go: `human` \| `agent`). Session and magic-link login reject `actor_kind != human`.
 - `users.last_project_id` optional; session `last_project_id` is enough for “land on my last project” if updated on board load.
 
-**Username (open question 3 — unspecified product):** `users.username` is `NOT NULL UNIQUE`. Slice 0 must persist one. Until Dan picks: derive from the email local-part (`[a-z0-9_]+`, trim to 100); if taken, append `-` + 4 random unambiguous chars. Allow edit later when a profile slice exists. Do not write an empty string (that is a fallback).
+**Username (locked 20 Aug 2026):** infer from the email local-part. No username field in slice 0. `users.username` is `NOT NULL UNIQUE`. Slice 0 must persist one: derive from the email local-part (`[a-z0-9_]+`, trim to 100); if taken, append `-` + 4 random unambiguous chars. Allow edit later when a profile slice exists. Do not write an empty string (that is a fallback).
 
 **Display name (unspecified product):** column is `NOT NULL`. Set it to the username at create. Do not invent a profile editor in Phase 0.
 
@@ -855,11 +855,11 @@ These are not new product rules. Product remains unspecified where marked.
 
 | Item | Status | Assumption if we must ship |
 | --- | --- | --- |
-| Username at signup | Unspecified (fork 3) | Derive from email local-part; uniquify; editable later |
+| Username at signup | Locked 20 Aug 2026 | Infer from email local-part; uniquify; no username field in slice 0; editable later |
 | Organisation public slug | Unspecified (fork 2) | UUID routes; no public org slug in Phase 0 |
 | `display_name` | Unspecified | Copy username at create |
-| Project TZ | Fork 4; velocity doc already says store + default Melbourne | `projects.timezone` default `Australia/Melbourne` |
-| Icebox vs one rank | Assumed two lists (fork 5) | `rank_list` + unique `(project_id, rank_list, rank)` |
+| Project TZ | Fork 3; velocity doc already says store + default Melbourne | `projects.timezone` default `Australia/Melbourne` |
+| Icebox vs one rank | Assumed two lists (fork 4) | `rank_list` + unique `(project_id, rank_list, rank)` |
 | Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
 | Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
 | HTTP prefix `/v1` vs `/api/v1` | Conflict: agent-api vs existing README | **`/api/v1`** mount; agent verbs/errors unchanged |

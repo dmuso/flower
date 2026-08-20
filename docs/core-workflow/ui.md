@@ -457,7 +457,7 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 
 - One next action: **Create account** (Primary).
 - Secondary: **Email me a link instead** (Secondary). Sign in link in the footer, quieter: `Already have an account? Sign in`.
-- Fields: Email, Password. Username: **do not ask** unless the open question lands on “ask” — infer from the email local-part.
+- Fields: Email, Password. Username: **do not ask.** Infer from the email local-part. No username field in slice 0.
 - Confirm: none. They can sign out.
 
 | State | Copy | Next |

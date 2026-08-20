@@ -346,9 +346,9 @@ Acceptance criteria:
 Why independently acceptable: an @ reaches a human without Slack.
 
 Acceptance criteria:
-- `@` in a comment or description that resolves to a project Member/Owner → in-app + email. Unresolved `@` is plain text. Slack out of scope.
+- `@` in a comment or description that resolves to a project Member, Owner, or Viewer → in-app + email. Unresolved `@` is plain text. Slack out of scope.
 - Email + in-app also for: assigned as owner, delivered (to requester), rejected (to owners).
-- Viewer can be mentioned (email) and cannot follow, comment, or assign.
+- Viewer can be mentioned and still cannot follow, comment, or assign.
 
 ### Slice 13 — Member writes Markdown description and comments
 
@@ -382,7 +382,7 @@ Acceptance criteria:
 
 - Activity list on the story: created, estimated, scheduled/iceboxed, started, finished, delivered, accepted, rejected (reason), restarted, requester/owners/title changed, blocker, attachment, comment, label. Actor, time, from → to.
 - Reorders do not spam activity.
-- **Undo** on the latest state-changing activity restores the previous state (Accept → Delivered, Reject → Delivered, Start → Unstarted, Restart → Rejected, Finish → Started, Deliver → Finished). Undo is itself an activity.
+- **Undo** on the latest state-changing activity restores the previous state (Accept → Delivered, Reject → Delivered, Start → Unstarted, Icebox Start → Unscheduled, Restart → Rejected, Finish → Started, Deliver → Finished). Undo is itself an activity.
 - You cannot undo a non-state event (a comment) with this control.
 - Viewer can read activity, cannot undo.
 - Existing `activities` table is the ground (`kind`, `summary`, `actor_id`).

@@ -6,14 +6,13 @@ Only **true forks** — things we cannot assume. Everything else is decided. If 
 
 1. **Agent accept / reject.** Humans: any Member or Owner may accept or reject a Feature/Bug. Agents: this spec forbids Feature/Bug `accept` and `reject` (they deliver; a human accepts). Chore finish→accepted and Release finish→accepted **are** allowed for an agent with `stories:transition`, because those verbs *are* Finish. Fork: should a scoped agent also accept Features?
 2. **Organisation slug and URL.** We assume a human-facing organisation name plus whatever URL the Technical Lead needs. Fork: public slug uniqueness vs per-user uniqueness.
-3. **Username at signup.** `users.username` is `NOT NULL` in the existing schema. Fork: ask for a username in slice 0, or infer from email local-part and let them edit later.
-4. **Project timezone source.** Rollover is midnight in the project timezone. Fork: store an explicit project TZ (recommended) vs infer from the creating owner and never show a setting in MVP.
-5. **Icebox order vs backlog order.** Tracker Icebox is its own ordered list, not interleaved with Backlog. We assume that. Fork: one global rank including Icebox (filter by state) vs two ranks.
-6. **Who creates projects after slice 0.** We assume only organisation owners. Fork: any Member of the org.
-7. **CSV export by Members.** We assume **Owners only** for import and export. Fork: Members may export.
-8. **Cycle-time clock on reject.** We assume first `started` → `accepted`, and reject does not reset the clock. Fork: clock from the *last* Restart.
-9. **`planned` state.** Tracker adds `planned` when Current is manually planned. Manual planning is a later slice. Fork: introduce `planned` in that slice (copy Tracker) vs keep `unstarted` and a panel flag only.
-10. **Workspaces shared or personal.** We assume personal (per account) in one organisation. Fork: shared team workspaces.
+3. **Project timezone source.** Rollover is midnight in the project timezone. Fork: store an explicit project TZ (recommended) vs infer from the creating owner and never show a setting in MVP.
+4. **Icebox order vs backlog order.** Tracker Icebox is its own ordered list, not interleaved with Backlog. We assume that. Fork: one global rank including Icebox (filter by state) vs two ranks.
+5. **Who creates projects after slice 0.** We assume only organisation owners. Fork: any Member of the org.
+6. **CSV export by Members.** We assume **Owners only** for import and export. Fork: Members may export.
+7. **Cycle-time clock on reject.** We assume first `started` → `accepted`, and reject does not reset the clock. Fork: clock from the *last* Restart.
+8. **`planned` state.** Tracker adds `planned` when Current is manually planned. Manual planning is a later slice. Fork: introduce `planned` in that slice (copy Tracker) vs keep `unstarted` and a panel flag only.
+9. **Workspaces shared or personal.** We assume personal (per account) in one organisation. Fork: shared team workspaces.
 
 If Dan does not answer, the “we assume” side ships.
 
