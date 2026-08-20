@@ -19,7 +19,7 @@ These are Tracker. Do not “improve” them in MVP.
 - **Unstarted cannot be dragged above started.**
 - **Estimate to Start a Feature.** `0` is a valid estimate. Bugs and chores are unestimated by default and do not count toward velocity.
 - **Auto-plan.** Pack Current toward velocity; **leave Current short** rather than overfill with the next story. Start on a Backlog or Icebox story still jumps it to Current (may overflow). Re-plan live on estimate, order, accept, velocity, length.
-- **Velocity.** Live rate from completed Features’ `started_at` → `accepted_at`. Lookback = last `velocity_strategy` completed **windows** (default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the **same estimate**. **Initial velocity 10** is bootstrap (estimate-points that fit in a full window) while the corpus is empty.
+- **Velocity.** Live rate from completed Features’ `started_at` → `accepted_at`. Lookback = last number of completed windows set by `velocity_strategy` (default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the **same estimate**. **Initial velocity 10** is bootstrap (estimate-points that fit in a full window) while the corpus is empty.
 - **Any Member can accept.** Owner / Member / Viewer only. Requester *should* accept; My Work surfaces their Delivered. No accept ACL in MVP. History is undo.
 - **Owners: maximum 5.** Start assigns the clicker as an owner. Requester and owners auto-follow and cannot unfollow.
 - **Tasks** are unowned, unpointed checklists. Incomplete tasks **warn** on Accept; they do not hard-block.

@@ -26,7 +26,7 @@ If Dan does not answer, the “we assume” side ships.
 - One ordered list; unstarted cannot be dragged above started.
 - Auto-plan leaves Current short rather than overfill; Start may overflow Current.
 - Initial velocity **10** is bootstrap only: pack uses it as estimate-points that fit in a full window while the corpus is empty (or `time == 0`).
-- `velocity_strategy` = last 3 completed **windows**, setting 1–4. Lookback for the corpus.
+- `velocity_strategy` = last number of completed windows (default 3, setting 1–4). Lookback for the corpus.
 - Velocity is live duration: `velocity = work / time` from completed Features (`started_at` → `accepted_at`). Incomplete stories pack by `predicted_duration(estimate)` from completed stories of the same estimate. Team strength % later.
 - Any Member can accept. No accept ACL. Requester should. My Work surfaces Delivered.
 - Owners max 5. Start assigns the clicker. Requester + owners auto-follow and cannot unfollow.
@@ -50,7 +50,7 @@ If Dan does not answer, the “we assume” side ships.
 ### Planning (locked)
 
 - Length is **days** (default 7), stored on the project as `iteration_length_days`. Not 1–4 weeks. Not a stored list of windows.
-- `pack` is a pure function of (ordered stories, velocity, predicted_duration, iteration_length_days, now, timezone). Stories are not assigned to a window row.
+- `pack` is a pure function of (ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone). Stories are not assigned to a window row.
 - There is no `iterations` table. Nothing is stored for velocity except story timestamps, estimate, and project settings. Planning is live duration + similar-size predicted duration.
 - Accepted stays in Current until the current window ends (midnight at `starts_on + iteration_length_days`, project timezone). Done is a flat aged-accepted list.
 

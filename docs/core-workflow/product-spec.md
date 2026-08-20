@@ -284,13 +284,13 @@ Acceptance criteria:
 - After the first Feature is accepted with both `started_at` and `accepted_at`, the duration model is the only model: `velocity = work / time` from the corpus, and incomplete stories pack by `predicted_duration(estimate)` (mean duration of completed Features of the same estimate; or `estimate / velocity` if that size has no corpus row). Current fills remaining time from `now` to `ends_at`.
 - Future bands in Backlog are **visual** only — the same `pack` function, not stored rows, not story assignments.
 - Starting a Backlog or Icebox Feature still jumps it to Current and **may** overflow Current.
-- Window **end** (chosen rule): midnight at `starts_on + iteration_length_days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `iteration_length_days` is length in days. Clock crossing only. Accepted stories whose `accepted_at` is now in a completed window age into Done (flat). `velocity` and `predicted_duration` recompute from stories. Lookback is the last `velocity_strategy` completed windows (default 3, setting 1–4).
+- Window **end** (chosen rule): midnight at `starts_on + iteration_length_days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `iteration_length_days` is length in days. Clock crossing only. Accepted stories whose `accepted_at` is now in a completed window age into Done (flat). `velocity` and `predicted_duration` recompute from stories. Lookback is the last number of completed windows set by `velocity_strategy` (default 3, setting 1–4).
 - A story is never split. If the next Feature’s predicted duration (or bootstrap cost) does not fit remaining budget, it stays in the next Backlog **band**.
 - Reorder, estimate, accept, start, icebox, length change, or window end → plan already recomputed. No Recalculate button.
 - Accepted this window: still in Current until the current window ends. After the window ends: those accepted stories are in Done as a **flat** list (newest accepted first), not grouped by a window row.
 - Length default **7 days**. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. Not a stored iteration list.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
-- An oversized Feature (`predicted_duration` > a full window of `iteration_length_days`; cold start: cost > 10) auto-fills only into a band with no packed estimated work and marks that band over capacity; it never sits unpacked.
+- An oversized Feature (`predicted_duration(estimate)` exceeds a full window of `iteration_length_days`; cold start: cost > 10) auto-fills only into a band with no packed estimated work and marks that band over capacity; it never sits unpacked.
 - Fail the slice if the planner persists window rows, persists velocity, or assigns a story to a window, or if Current is labelled “iteration 3”.
 
 Phase 0 is not done without slice 8.
