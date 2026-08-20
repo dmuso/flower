@@ -130,7 +130,7 @@ The **board** in this file is that projection (stories into Icebox / Backlog / C
 | **Current** | This band: in-flight + velocity-filled unstarted + accepted *in this window*. Bloom highlight on the header. | Not “in progress only”. Not Done. Not “iteration 3”. |
 | **Done** | Accepted work that has **aged past the current window**. Flat list, newest accepted first. | Not a drop target. Not where Accept sends a story. Not grouped by iteration row. |
 
-Current header: **points / V**, computed `Ends {date}`, **over-velocity** badge when Feature-points > V.
+Current header: **points / velocity**, computed `Ends {date}`, **over-velocity** badge when Feature-points > velocity.
 
 Current column header uses Bloom as the live-window highlight (guide). The other three headers stay ink-700 uppercase. That is how you know which band is live without memorising the UI.
 
@@ -234,12 +234,12 @@ Keyboard reorder is first-class (Tab, Space, arrows, Space). See §7.
 
 ### Band chrome (computed, not stored)
 
-- **Current `ColumnHeader` extra line** (Inter 500, not uppercase): `{points} / {V}` · `Ends {computed end}` · badge `Over velocity` when points > V. New project: `0 / 10` (or the Owner’s initial velocity), never a fake `0` velocity unless they set initial to 0.
-- **Backlog:** future **band** subheaders: `Ends {computed end}` · packed points / V. Empty board: no fake headers (slice 0). No “Iteration 3”.
+- **Current `ColumnHeader` extra line** (Inter 500, not uppercase): `{points} / {velocity}` · `Ends {computed end}` · badge `Over velocity` when points > velocity. New project: `0 / 10` (or the Owner’s initial velocity), never a fake `0` velocity unless they set initial to 0.
+- **Backlog:** future **band** subheaders: `Ends {computed end}` · packed points / velocity. Empty board: no fake headers (slice 0). No “Iteration 3”.
 - **Done:** **no** iteration groups. Flat accepted list that has aged past the current window, newest accepted first.
 - **Icebox:** title + count only. Never a band header. Never a date.
 
-The current window is the length-in-days band that contains now (default 7 days). Start of the first band is computed from project created; later bands follow every L days. Changing length replans immediately.
+The current window is the length-in-days band that contains now (default 7 days). Start of the first band is computed from project created; later bands follow every `iteration_length_days`. Changing length replans immediately.
 
 No Recalculate button. The board after a mutation is already right.
 
@@ -323,8 +323,8 @@ Flower fills what it can. The human types what only a human knows.
 | Follow | Requester + owners, cannot unfollow | Others may follow |
 | Estimate | Unestimated. `0` is a value only if they pick it | 0 / 1 / 2 / 3 on a Feature before Start |
 | Band / projected date | Planner assigns from velocity + rank + length in days. Live. | Never a due-date picker. Never “iteration 3”. |
-| Current membership | Auto-plan up to V, leave short | Start (may overflow). No drag-to-Current |
-| Velocity | Live from completed-story durations; initial 10 is bootstrap | Owner may set initial V and strategy 1–4 in settings |
+| Current membership | Auto-plan up to velocity, leave short | Start (may overflow). No drag-to-Current |
+| Velocity | Live from completed-story durations; initial 10 is bootstrap | Owner may set initial velocity and strategy 1–4 in settings |
 | Iteration length | **Days** (default 7) | Owner may set length in days. Not a stored list. |
 | Timezone | Store; default `Australia/Melbourne` | Owner setting, not a signup field |
 | Icebox vs Backlog on create | Icebox | Pull to Backlog, or add-in-Backlog as a quieter column action |
@@ -506,7 +506,7 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 **NameProject**
 
 - One next action: **Create project**.
-- Field: `Project name`. Infer slug, iteration length 7 days, V = 10, Linear 0/1/2/3, TZ default.
+- Field: `Project name`. Infer slug, iteration length 7 days, initial velocity 10, Linear 0/1/2/3, timezone default.
 - Empty: `Name the first project.`
 - Error (blank): `Name the project.`
 - Success: `Board`.
@@ -607,7 +607,7 @@ Icebox with rows: composer is a quiet `Add a story` at the top, not a modal.
 - One next action if estimated: **Start**.
 - Secondary: change estimate; clear with `—` / `-` while `unstarted`; Pull / Icebox as legal.
 - Start assigns the clicker as owner and follower. If 5 owners already and the clicker is not among them: Start still happens; announce `Started. Couldn’t add you as owner — this story already has 5.`
-- Start from Icebox: estimate first (or estimate then Start). Story becomes `started` in **Current**, not `unstarted` in Backlog. May overflow V.
+- Start from Icebox: estimate first (or estimate then Start). Story becomes `started` in **Current**, not `unstarted` in Backlog. May overflow velocity.
 - Viewer: chips visible, not clickable.
 - Confirm: none. Undo: slice 15 (`started` → `unstarted`).
 
@@ -695,20 +695,20 @@ Icebox reorder is independent.
 
 **Screen:** same `Board`. No new verb. This is the Tracker moment.
 
-- One next action on a new project with estimated Features in the ranked list: **read Current** (already filled, left **short** of V) or **Start** a Backlog story (may overflow).
+- One next action on a new project with estimated Features in the ranked list: **read Current** (already filled, left **short** of velocity) or **Start** a Backlog story (may overflow).
 - Secondary: iteration **length in days** in project settings (Owner). Default 7. Changing length replans live. No Recalculate. No iteration objects.
 - Current header: `6 / 10` · `Ends 9 Aug` (computed). Over: `11 / 10` + badge `Over velocity`.
 - Accepted in this window: still in Current.
-- When accepted work ages past the current window: those rows sit in Done as a **flat list** (no `Ended {date}` groups). V updates from completed-story durations (`started_at` → `accepted_at`) over the last K completed windows (default 3, setting 1–4).
+- When accepted work ages past the current window: those rows sit in Done as a **flat list** (no `Ended {date}` groups). Velocity updates from completed-story durations (`started_at` → `accepted_at`) over the last `velocity_strategy` completed windows (default 3, setting 1–4).
 
 | State | Copy | Next |
 | --- | --- | --- |
 | Empty ranked list | Current empty copy from slice 0 | Add or pull |
 | Left short | Header shows e.g. `6 / 10`. No apology chrome. | Start something if they mean to overflow |
 | Over (because Start) | Badge `Over velocity` | Finish the work; do not kick rows out |
-| New project V | Header uses **10**, never a fake 0 | — |
+| New project velocity | Header uses **10**, never a fake 0 | — |
 
-The window boundary is midnight, project TZ. No “close the iteration” button. No stored iteration to close.
+The window boundary is midnight, project timezone. No “close the iteration” button. No stored iteration to close.
 
 
 ---
@@ -948,11 +948,11 @@ Tracker epics are purple. The guide has no purple. **Do not invent a purple hex.
 - One next action: none to type — **reorder or estimate** if the date is wrong. The planner moves.
 - Icebox: `Not scheduled.`
 - Release date = computed **band end** that contains the marker. Target date is the only date they type. It does not move stories.
-- Live on reorder / estimate / accept / V change.
+- Live on reorder / estimate / accept / velocity change.
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Scheduled | computed band end in project TZ | — |
+| Scheduled | computed band end in project timezone | — |
 | Icebox | `Not scheduled.` | Pull to Backlog |
 | Late release | Marker uses `#B42318` | Reorder work above it, or live with red |
 
@@ -963,7 +963,7 @@ Tracker epics are purple. The guide has no purple. **Do not invent a purple hex.
 **Screen:** `Charts` (settings or a quiet AppBar link). Viewers can see.
 
 - One next action: **read**, then back to the board (`Esc` / `Back to the board`).
-- Velocity: bar per **completed window**, derived from completed-story durations in that window; line at V. While the corpus is empty, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
+- Velocity: bar per **completed window**, derived from completed-story durations in that window; line at velocity. While the corpus is empty, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
 - Burn-up: cumulative accepted Feature estimates vs scoped Feature estimates, derived from stories (live now).
 
 | State | Copy | Next |
@@ -1142,7 +1142,7 @@ Default before they split: four columns in one pane (the MVP board).
 
 - One next action when turning off: confirm **Turn off**.
 - Current then holds only in-flight, accepted-this-iteration, and stories **explicitly moved** there (drag Backlog → Current, or `C` on a focused unstarted Backlog story). No velocity fill into Current. Backlog future iterations still auto-plan. Icebox → Current stays illegal.
-- Restore: **Use automatic planning** — replans Current from V. No confirm (reversible by turning off again; the replan is the product doing math, not a delete).
+- Restore: **Use automatic planning** — replans Current from velocity. No confirm (reversible by turning off again; the replan is the product doing math, not a delete).
 - Default remains automatic. Not MVP.
 
 | State | Copy | Next |
@@ -1158,7 +1158,7 @@ Default before they split: four columns in one pane (the MVP board).
 | | Owner | Member | Viewer |
 | --- | --- | --- | --- |
 | Add / estimate / verbs including Accept & Reject | Yes | Yes | No |
-| Invite, roles, iteration length (days) / scale / auto-plan / TZ | Yes | No | No |
+| Invite, roles, iteration length (days) / scale / auto-plan / timezone | Yes | No | No |
 | API tokens (own) | Yes | Yes | Yes (own tokens; Viewer role on the token still cannot mutate) |
 | My Work | Yes | Yes | No |
 | Search, charts, read board | Yes | Yes | Yes |
@@ -1174,7 +1174,7 @@ The requester is not a special ACL. Copy may say `You requested this` on My Work
 
 **Density of four columns vs the occasional user.** The board is dense on purpose (Tracker). Occasional users still get one Bloom verb per row and empty-state sentences. They do not get a wizard. `?` and skiplinks (`Shift+A`) are how they learn location. We do not add a “simple mode”.
 
-**Icebox must not look like a fourth Kanban column.** Same paper column class as the others (guide). Difference is **chrome and words**, not a new colour: no iteration header, no `points / V`, empty copy is “waiting / capture / pull”, the row verb is **Pull to Backlog** not “Move to next”. Current is the only Bloom-highlighted column. Dragging toward Current does not advance a pipeline — it snaps back. Hiding Icebox (`Shift+I`) is allowed so it is not always sitting there as “step 0”.
+**Icebox must not look like a fourth Kanban column.** Same paper column class as the others (guide). Difference is **chrome and words**, not a new colour: no iteration header, no `points / velocity`, empty copy is “waiting / capture / pull”, the row verb is **Pull to Backlog** not “Move to next”. Current is the only Bloom-highlighted column. Dragging toward Current does not advance a pipeline — it snaps back. Hiding Icebox (`Shift+I`) is allowed so it is not always sitting there as “step 0”.
 
 **Icebox is leftmost.** The product names columns Icebox, Backlog, Current, Done. Tracker often parked Icebox to the right. Leftmost + holding-pen copy is a real tension (it reads as a funnel). Mitigation is the verb language and the snap-back, not a reorder of the columns. Reordering the four columns is **not** in this spec.
 
@@ -1210,7 +1210,7 @@ Do not reopen these. Product Owner accepted them. They live in `docs/product/ope
 10. Epic visual: no new purple hex. Epic pill is Bloom-bordered.
 11. Slice 30 manual Current: drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current stays illegal.
 
-Also law: Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; `planned` only if slice 30 needs it; project TZ stored, default `Australia/Melbourne`, not asked at signup; API tokens are generic (same API, same roles; a Member token can accept).
+Also law: Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; `planned` only if slice 30 needs it; project timezone stored, default `Australia/Melbourne`, not asked at signup; API tokens are generic (same API, same roles; a Member token can accept).
 
 ---
 

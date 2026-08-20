@@ -59,19 +59,19 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 ## planning
 
-**Owns:** two pure functions — `V(...)` and `pack(ordered stories, V, L, now, TZ)` — and the computed window dates. Nothing persisted.
+**Owns:** two pure functions — `velocity(...)` and `pack(ordered stories, velocity, iteration_length_days, now, timezone)` — and the computed window dates. Nothing persisted.
 
-**Invariants:** planning / velocity is a **calculation**. There is no Iteration entity. The only stored settings are project `iteration_length_days`, start weekday, timezone, `velocity_strategy` (K), and `initial_velocity`. Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change.
+**Invariants:** planning / velocity is a **calculation**. There is no Iteration entity. The only stored settings are project `iteration_length_days`, start weekday, timezone, `velocity_strategy`, and `initial_velocity`. Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change.
 
-**V** is duration-based. It is calculated from completed Features’ **start/end datetimes** (`started_at` → `accepted_at`), not from summing estimates in a window. Exact rollup (including how K is applied) lives in `velocity-and-planning.md`.
+**Velocity** is duration-based. It is calculated from completed Features’ **start/end datetimes** (`started_at` → `accepted_at`), not from summing estimates in a window. Exact rollup (including how velocity_strategy is applied) lives in `velocity-and-planning.md`.
 
-**Predicted duration** for an incomplete story: from completed Features of the **same estimate**. What is projected to finish in the current window is V plus those predicted durations, packed in rank order. We accept stories, not points.
+**predicted_duration(estimate)** for an incomplete story: from completed Features of the **same estimate** (`predicted_duration(estimate)`). What is projected to finish in the current window is velocity plus those predicted durations, packed in rank order. We accept stories, not points.
 
 **Cold start:** until one Feature has both `started_at` and `accepted_at`, `pack` uses `initial_velocity` as estimate-points that fit in a window. After that, the duration model takes over.
 
 **Window end** is a clock crossing, not a write.
 
-**Must not own:** story machine, rank, HTTP for transitions, token mint. Must not persist V, window totals, or accepted points.
+**Must not own:** story machine, rank, HTTP for transitions, token mint. Must not persist velocity, window totals, or accepted points.
 
 ## activity
 
@@ -97,7 +97,7 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 | attachment | Files + auth GET | Not a public URL |
 | webhook | Outbound project hooks | Delivery is not a command |
 | search | Operators | Does not change rank |
-| chart | Completed bars from the same live V sums | Read-only |
+| chart | Completed bars from the same live velocity calculation | Read-only |
 
 ---
 
@@ -105,8 +105,8 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 | Not a domain | Why |
 | --- | --- |
-| Iteration / time-box table | Planning is a calculation. Settings + `pack` + live V. |
-| Board | A **frontend projection**. The API returns stories plus pack fields (V, bands, dates). The SPA draws Icebox / Backlog / Current / Done. No `board` domain package. No `/board` API. |
+| Iteration / time-box table | Planning is a calculation. Settings + `pack` + live velocity. |
+| Board | A **frontend projection**. The API returns stories plus pack fields (velocity, bands, dates). The SPA draws Icebox / Backlog / Current / Done. No `board` domain package. No `/board` API. |
 | API token as an identity type | Token is a user credential on `user`. |
 | `app/` use-case packages | `app/` is lifecycle + wiring only. |
 | `api/internal/wire/` | Does not exist. Do not invent it. |

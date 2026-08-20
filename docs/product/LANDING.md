@@ -31,7 +31,7 @@ Root `README.md` should describe Icebox as a holding pen, not a pipeline stage. 
 | `tracker-brief.md` | `docs/product/tracker-brief.md` | Copy-exactly vs modernise. |
 | `product-spec.md` | `docs/core-workflow/product-spec.md` | Whole-product slices + AC. |
 | `domain-model.md` | `docs/core-workflow/domain-model.md` | Domain map. Technical Lead owns the tree. |
-| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model (live `V_rate` + `pred` + `pack`). |
+| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model (live `velocity` + `predicted_duration` + `pack`). |
 | `multitenancy.md` | `docs/multitenancy/multitenancy.md` | Organisations, roles, isolation. |
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |

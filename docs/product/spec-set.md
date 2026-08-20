@@ -39,7 +39,7 @@ Four story types, **different state machines** (classic Tracker):
 - **Chore:** unscheduled → unstarted → started → accepted. No finished, delivered, or reject.
 - **Release:** a marker, not work. Auto-started when created or dragged into Backlog. Finish → accepted. Optional target date. Place the marker at the **end** of that milestone’s stories. Blue if on track versus the date; red if the **computed window** that contains the marker **starts** after the target.
 
-Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last `K` completed windows, default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the same estimate. A new project bootstraps with **initial velocity 10** as estimate-points that fit in a full window. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
+Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last `velocity_strategy` completed windows, default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the same estimate. A new project bootstraps with **initial velocity 10** as estimate-points that fit in a full window. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
 
 Length is **days** (default 7), stored on the project. Flower does not persist Tracker-style iteration records as the plan. `pack` is a pure function. Stories are not assigned to a window row.
 
@@ -93,7 +93,7 @@ Architecture lives in `technical-approach.md` after the Reviewer clears this set
 | [tracker-brief.md](./tracker-brief.md) | Copy-exactly vs modernise |
 | [product-spec.md](./product-spec.md) | Problem, personas, slices, AC |
 | [domain-model.md](./domain-model.md) | Domain map (Technical Lead) |
-| [velocity-and-planning.md](./velocity-and-planning.md) | Window clock, corpus, `V_rate`, `pred`, `pack`, releases, charts, examples |
+| [velocity-and-planning.md](./velocity-and-planning.md) | Window clock, corpus, `velocity`, `predicted_duration`, `pack`, releases, charts, examples |
 | [multitenancy.md](./multitenancy.md) | Organisations, roles, isolation, workspaces |
 | [open-questions.md](./open-questions.md) | True forks + baked assumptions |
 | [LANDING.md](./LANDING.md) | Eventual repo paths; overview.md correction |

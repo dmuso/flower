@@ -105,7 +105,7 @@ Add as the slice lands, under `api/internal/domain/` — **not** under `app/`.
 | Projects + membership | `project` | Same four files; roles live here or in `permission`. Owns iteration **length in days** and other project settings. |
 | Stories | `story` | Create, schedule, icebox, estimate, transition. |
 | Rank | `story/rank` | Keep with story unless another domain must own it. |
-| Planning / velocity | `planning` | Pure `V` + `pack`. A calculation. Persists nothing. |
+| Planning / velocity | `planning` | Pure `velocity` + `pack`. A calculation. Persists nothing. |
 | Tenancy / 404-vs-403 | `tenancy` or inside `organisation` + `permission` | Effective role. |
 
 Typical domain package:
@@ -184,7 +184,7 @@ Use `features/` for board, story, and planning. Keep auth/session helpers in `li
 | 8 Planning | board headers | `features/planning/` (render pack fields) | `stories.ts` + pack fields on the story/project payload |
 | 23 Tokens | user settings | page-only is enough | `users.ts` (mint / list / revoke) |
 
-The SPA **does not recompute** velocity. It draws Icebox / Backlog / Current / Done from stories plus pack fields the API already calculated (V, band, dates). There is no `board` domain and no `/board` API. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
+The SPA **does not recompute** velocity. It draws Icebox / Backlog / Current / Done from stories plus pack fields the API already calculated (velocity, band, dates). There is no `board` domain and no `/board` API. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
 
 ### HTTP mount
 
@@ -399,7 +399,7 @@ Business rules in Go. No DB enum. One table-driven package: `domain/story/machin
 | schedule | unscheduled | unstarted | Owner, Member |
 | icebox | unstarted only | unscheduled | Owner, Member |
 | start | unstarted | started | Owner, Member; Feature needs estimate (`0` allowed) |
-| start | unscheduled (Icebox) | started | Owner, Member; schedule+start; lands started in Current (may overflow V) |
+| start | unscheduled (Icebox) | started | Owner, Member; schedule+start; lands started in Current (may overflow velocity) |
 | finish | started | finished | Owner, Member |
 | deliver | finished | delivered | Owner, Member |
 | accept | delivered | accepted | Owner, Member |
@@ -421,20 +421,20 @@ Undo (slice 15): latest state-changing activity only. Reorders do not write acti
 
 ### Planning (calculation, not an aggregate)
 
-The only stored settings are `projects.iteration_length_days`, start weekday, timezone, `velocity_strategy` (K), and `initial_velocity`. Do not persist V, window totals, or accepted points. We accept stories (`accepted_at`), not points.
+The only stored settings are `projects.iteration_length_days`, start weekday, timezone, `velocity_strategy`, and `initial_velocity`. Do not persist velocity, window totals, or accepted points. We accept stories (`accepted_at`), not points.
 
 Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change. Stories do not store which band they are in.
 
 Normative formula text: `velocity-and-planning.md` (PO rewriting). This file states the implementer shape only. No Recalculate button.
 
-**Window clock:** calendar windows that end at midnight, project TZ. `L` = `iteration_length_days`. First start = configured weekday on or before project-created date. Window `i`: half-open `[starts_on, ends_at)` where `ends_at = starts_on + L days` at 00:00 TZ. Current window = the unique `i` containing `now`. Changing length / TZ / weekday replans immediately. **Window end** is a clock crossing, not a write.
+**Window clock:** calendar windows that end at midnight, project timezone. Length is `iteration_length_days`. First start = configured weekday on or before project-created date. Each window is half-open `[starts_on, ends_at)` where `ends_at = starts_on + iteration_length_days` at 00:00 in that timezone. Current window = the unique window containing `now`. Changing length / timezone / weekday replans immediately. **Window end** is a clock crossing, not a write.
 
-**V** (live, `domain/planning`): calculated from previous Features’ **start/end datetimes** (`started_at` → `accepted_at`). Not a sum of estimates in a window. How those durations roll up, and how K applies, is the velocity doc.
+**Velocity** (live, `domain/planning`): calculated from previous Features’ **start/end datetimes** (`started_at` → `accepted_at`). Not a sum of estimates in a window. How those durations roll up, and how velocity_strategy applies, is the velocity doc.
 
-**Predicted duration** for each incomplete story: from completed Features of the **same estimate**. Pack fills the current window using V plus those predicted durations, in rank order:
+**predicted_duration(estimate)** for each incomplete story: from completed Features of the **same estimate** (`predicted_duration(estimate)`). Pack fills the current window using velocity plus those predicted durations, in rank order:
 
 ```
-pack(ordered_stories, V, L, now, TZ) -> bands
+pack(ordered_stories, velocity, iteration_length_days, now, timezone) -> bands
 ```
 
 **Cold start:** until at least one Feature has both `started_at` and `accepted_at`, `pack` treats `initial_velocity` as estimate-points that fit in a window. After that first completed Feature, the duration model takes over.
@@ -456,7 +456,7 @@ Start on a Backlog or Icebox story jumps it to Current and may overflow the curr
 
 Accepted-this-window stays in Current until the clock crosses `ends_at`. Done is empty until that first crossing.
 
-There is **no** `/board` API. `GET /api/v1/projects/:id/stories` (and project settings) returns stories plus computed pack fields: band, V, initial vs calculated, current window dates, over-capacity badge. The SPA draws four columns. One formula in `domain/planning`.
+There is **no** `/board` API. `GET /api/v1/projects/:id/stories` (and project settings) returns stories plus computed pack fields: band, velocity, initial vs calculated, current window dates, over-capacity badge. The SPA draws four columns. One formula in `domain/planning`.
 
 ### Ranking
 
@@ -676,8 +676,8 @@ Only what a slice cannot ship without. No drive-by.
 | Risk | Why it is real | Mitigation |
 | --- | --- | --- |
 | Planner drift from the velocity doc | Easy to “improve” leave-short or oversized Features | Pure `Pack` + table tests for **all three** worked examples in the velocity doc; QA script in that file; velocity doc wins reviews |
-| Inventing an iteration table | Easy to persist bands or V | Pack and V are functions. Persist nothing. Tests assert no window FK |
-| Clock vs project TZ | Window end is midnight TZ | Injected `Clock`; test env clock endpoint; crossing is a read, not a write |
+| Inventing an iteration table | Easy to persist bands or velocity | Pack and velocity are functions. Persist nothing. Tests assert no window FK |
+| Clock vs project timezone | Window end is midnight in the project timezone | Injected `Clock`; test env clock endpoint; crossing is a read, not a write |
 | Rank unique collisions / 64-char overflow | Two lists; midpoint can grow | `rank_list` in the unique key; rebalance in-transaction; tests at the 64-char edge |
 | Cross-tenant leaks (id guess, search, files, tokens) | Multitenant from day one | Every query joins organisation; miss → 404; attachment GET checks org+project+auth; isolation tests ride slices 0, 1, 23 |
 | Token treated as a second identity | Activity needs a user; a token is not a login | Token authenticates as `api_tokens.user_id`; `activities.user_id` is that user; optional token `name` in activity payload/summary; session login stays password/magic-link |
@@ -685,7 +685,7 @@ Only what a slice cannot ship without. No drive-by.
 | SSE lost across API replicas | In-process bus | Single replica in MVP; `Bus` interface; do not pretend it is multi-node |
 | Webhook retry storms | At-least-once | Cap attempts (implementation: 8, exponential backoff); `event_id` for receiver idempotency; do not POST back as a user |
 | Magic link / invite token leak | Email and logs | Store hashes only; single-use; 14-day invite; do not log raw tokens |
-| Clock skew vs project TZ | Rollover definition is midnight **project** TZ | Store TZ; default `Australia/Melbourne`; all comparisons via `Clock` + that TZ |
+| Clock skew vs project timezone | Rollover definition is midnight **project** timezone | Store timezone; default `Australia/Melbourne`; all comparisons via `Clock` + that timezone |
 | Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Implementers will follow the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
 | Dummy `password_hash` for magic-link users | Hidden branch, forbidden by AGENTS.md | Nullable column; password login refuses NULL |
 | Greenfield org on project | Slice 0 | `projects.organisation_id` is NOT NULL in the intended schema |
@@ -710,7 +710,7 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 - Verified password signup: organisation + first project; creator is organisation owner and project owner; `point_scale = linear`, `iteration_length_days = 7`, `initial_velocity = 10`, `timezone = Australia/Melbourne` (until fork).
 - Magic link to a new email: user created, `email_verified_at` set, same org+project flow.
 - Login password and login magic link both land on last project.
-- Story list on a new project: empty; SPA shows four empty columns; V displays 10; no fake stories, no fake dates.
+- Story list on a new project: empty; SPA shows four empty columns; velocity displays 10; no fake stories, no fake dates.
 - Reload: same organisation / project ids.
 - Cross-tenant: session A `GET` project/story id from org B → 404.
 
@@ -750,7 +750,7 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 
 **QA**
 
-- Default add lands in Icebox. Fail if it appears in Current or affects V.
+- Default add lands in Icebox. Fail if it appears in Current or affects velocity.
 
 ### Slice 3 — schedule / icebox
 
@@ -834,22 +834,22 @@ Normative tests = velocity doc worked examples 1–3 **and** its QA short script
 
 **API / domain (table-driven)**
 
-- New project V = 10. Five estimated Features totalling > 10: Current **short**, not over. Next Feature that would exceed 10 stays in the next Backlog band.
+- New project velocity = 10. Five estimated Features totalling > 10: Current **short**, not over. Next Feature that would exceed 10 stays in the next Backlog band.
 - Never split.
 - Start a Backlog Feature that did not fit → Current, points may exceed 10, over-velocity badge.
 - Accept one Feature → still Current, not Done.
-- Advance test clock past window `ends_at` project TZ → that Feature in Done (flat list, newest accepted first); V is duration-based from `started_at` → `accepted_at`. Until the first Feature has both timestamps, pack uses `initial_velocity` as points that fit.
+- Advance test clock past window `ends_at` project timezone → that Feature in Done (flat list, newest accepted first); velocity is duration-based from `started_at` → `accepted_at`. Until the first Feature has both timestamps, pack uses `initial_velocity` as points that fit.
 - Reorder / estimate / accept / start / icebox / length change → board already recomputed. No window id written on the story.
-- Owner sets `iteration_length_days` to 14 → dates and pack change; V recomputes from durations.
+- Owner sets `iteration_length_days` to 14 → dates and pack change; velocity recomputes from durations.
 - Icebox never auto-fills into Current.
-- Oversized Feature (`cost > V`): next empty window, over-V exception (velocity doc).
+- Oversized Feature (predicted_duration(estimate) exceeds the current window): next empty window, over-capacity exception (velocity doc).
 - Cold start (no Feature with `started_at` + `accepted_at`) → pack uses `initial_velocity` as points that fit.
 - Bugs/chores/releases not required; when present later they follow the velocity doc.
 
 **QA**
 
 - Run the seven-step script in `velocity-and-planning.md` (steps 5–6 that need Release / illegal drag may wait for slices 18 / 7 respectively; step 7 is this slice).
-- Fail if a Recalculate button is required. Fail if V is typed in as a target. Fail if the board requires an iteration table to render bands.
+- Fail if a Recalculate button is required. Fail if velocity is typed in as a target. Fail if the board requires an iteration table to render bands.
 
 ### Isolation tests (ride 0, 1, 23)
 
@@ -871,7 +871,7 @@ From `multitenancy.md`: same title in org A and B, search/list only A; A fetches
 | 18 types | Same machine package; Bug start without points; Chore finish=accept; Release colour vs **starts_on** of the calculated window |
 | 19 epics | Purple label; independent order; progress Feature points only |
 | 20 dates | Calculated window `ends_on`; Icebox “Not scheduled”; no plan-overriding picker |
-| 21 charts | Bars from the same duration model; empty / cold-start: V line “initial 10” |
+| 21 charts | Bars from the same duration model; empty / cold-start: velocity line “initial 10” |
 | 22 search | Operators as specified; Done excluded unless `includedone:` |
 | 23 API tokens / webhooks | Mint on `POST /api/v1/users/:id/tokens`. Bearer start/finish/deliver/accept as Member. Viewer cap `forbidden` on mutations. Member cannot mint Owner. Token whose user cannot open project B → 404. Webhooks are outbound project hooks. |
 | 24 My Work / saved search | Owner/requester rules as specified |
@@ -945,7 +945,7 @@ These are not new product rules. Product remains unspecified where marked.
 | Username at signup | Locked 20 Aug 2026 | Infer from email local-part; uniquify; no username field in slice 0; editable later |
 | Organisation public slug | Unspecified (fork 2) | UUID routes; no public org slug in Phase 0 |
 | `display_name` | Unspecified | Copy username at create |
-| Project TZ | Fork 3; velocity doc already says store + default Melbourne | `projects.timezone` default `Australia/Melbourne` |
+| Project timezone | Fork 3; velocity doc already says store + default Melbourne | `projects.timezone` default `Australia/Melbourne` |
 | Icebox vs one rank | Assumed two lists (fork 4) | `rank_list` + unique `(project_id, rank_list, rank)` |
 | Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
 | Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
@@ -954,7 +954,7 @@ These are not new product rules. Product remains unspecified where marked.
 | Create-story `requester_id` | Product: requester is a Member/Owner | `requester_id` is the authenticated user (session or Bearer) and must be a Member / Owner |
 | Create-story `panel` | Product: default add is Icebox | Omitted `panel` → `icebox` for every user |
 | Token mint path + role-cap | Dan + this file | `POST /api/v1/users/:id/tokens` (list + revoke on the same user). Role = that user's project memberships, or an optional cap on `api_tokens.role` at or below the minter. Member cannot mint Owner. Viewer cannot mint. Token is a user credential, not an identity type. No org-collection token routes. No grants table (cap is a column). |
-| Planning persistence | Dan | None. Settings + live duration `V` + `pack` (predicted durations by estimate). Cold start: `initial_velocity` as points that fit until one Feature has `started_at` + `accepted_at`. |
+| Planning persistence | Dan | None. Settings + live duration velocity + `pack` (predicted durations by estimate). Cold start: `initial_velocity` as points that fit until one Feature has `started_at` + `accepted_at`. |
 | Undo | Product-spec: Owner, Member on latest state change | Same for session or Bearer. Not “own last change only”. |
 | Human session mechanism | Unspecified | Server-side cookie sessions |
 | Live transport | Unspecified | SSE + in-process bus, slice 17 |
