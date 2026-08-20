@@ -4,7 +4,7 @@ Change name: `flower`
 
 Eventual path: `docs/core-workflow/product-spec.md` (see [LANDING.md](./LANDING.md)).
 
-This spec is the product. Companion files own exhaustive rules for planning, tenancy, and the agent API. Do not implement until the Reviewer clears the spec set.
+This spec is the product. Companion files own exhaustive rules for planning and tenancy. Do not implement until the Reviewer clears the spec set.
 
 Spelling: UK / AU / NZ (`organisation`). Look: locked Flower identity, not a new one — UI Designer starts from `docs/reference/frontend-design-guide.md`.
 
@@ -16,17 +16,17 @@ Who feels it:
 
 - **Product owners** with a backlog in one tool, dates in a spreadsheet, and status in standup. They cannot answer “when does this land” without planning theater.
 - **Developers** asked to update tickets that do not match how work moves, and who lose the top of the list to unestimated Features or work that was never accepted.
-- **Agents** (coding agents, CI) expected to keep the board current by scraping, impersonating a human token, or guessing which status string means done.
+- **Automation** (scripts, CI, coding agents) expected to keep the board current by scraping, impersonating a person, or guessing which status string means done.
 
 What is missing:
 
 - Classic Tracker’s model, implemented faithfully: one ordered list, Icebox as an unscheduled holding pen, type-specific state machines, velocity from accepted Feature points.
 - An honest empty/new project: initial velocity 10, auto-fill, no fake milestone picker.
-- The same story API the frontend uses, so an agent can move a story as itself rather than impersonating a person.
+- The same story API the frontend uses, so a script can move a story with an **API token** rather than a person’s password.
 
 What better looks like:
 
-A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs iterations from velocity. A second person sees the move without refresh. An agent holds a token bound to a project membership and uses the same story API as the frontend (a Member agent can accept).
+A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs iterations from velocity. A second person sees the move without refresh. A Member or Owner mints an **API token** and a client (CI, a script, Grove) calls the same story API as the frontend.
 
 The existing `docs/product/overview.md` is the right shape and the wrong detail (`rejected` as a peer end-state). This spec supersedes those mistakes. LANDING requires the overview to be corrected in the same PR.
 
@@ -52,17 +52,17 @@ He does not need: time tracking, per-person capacity, an “In Review” column.
 
 Daily: Start the next estimated Feature, check tasks, paste a screenshot, Deliver, next.
 
-### Agent — Grove
+### Automation — Grove
 
-Grove is a coding agent or CI bot with its own name. First-class actor for attribution.
+Grove is a coding agent or CI job that keeps the board current. It is a **client**, not a distinct actor type. It authenticates with a generic **API token** minted for a Member (or Owner) user/membership.
 
-It needs: a bearer token bound to a project membership (not Dan’s password); the **same** `/api/v1/...` story API the frontend uses; `unestimated` if it tries to Start a Feature without points; attribution “Grove delivered checkout-api.”
+It needs: a Bearer token (not someone’s password); the **same** `/api/v1/...` story API the app uses; `unestimated` if it tries to Start a Feature without points. Activity is attributed to the user the token was minted for.
 
-Permissions are the membership role. A Member Grove can do everything Luis can, including accept and reject. A Viewer Grove can only read. The token does not add scopes beyond that role.
+Permissions are Owner / Member / Viewer — the whole model. A token minted for a Member can do everything Luis can, including accept and reject. A Viewer token can only read. The token does not add scopes.
 
-It must never: impersonate a human. Same machines as anyone — do not guess an estimate, invent a type or state, reorder without an explicit position, or treat Delivered as Accepted.
+Same machines as anyone — do not guess an estimate, invent a type or state, reorder without an explicit position, or treat Delivered as Accepted.
 
-Daily: Start when the branch opens, comment the PR URL, Finish when the work is in, Deliver when CI is green. If Grove is a Member it may also accept or reject. Same verbs as the board.
+Daily: Start when the branch opens, comment the PR URL, Finish when the work is in, Deliver when CI is green. Same verbs as the board.
 
 ## Out of scope
 
@@ -75,7 +75,7 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 - Pivotal Tracker import (later if at all). CSV is Phase 3.
 - Public projects, anonymous boards.
 - Native mobile apps.
-- AI inside Flower (auto-estimate, summarise). Agents *use* Flower.
+- AI inside Flower (auto-estimate, summarise). Clients *use* Flower via the same API.
 - A wiki. Images on a story only.
 - Multiple backlogs per project, portfolio rollups across organisations, SAFe.
 - Team strength % (later). Manual planning of Current (later, Phase 3).
@@ -85,13 +85,13 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 
 See also [tracker-brief.md](./tracker-brief.md). Short form:
 
-- Email + password and magic link for humans in MVP; SSO later.
-- Agents: bearer token bound to an actor that has a project membership. Same Owner / Member / Viewer permissions as that role. No extra scopes. Attribution is the agent’s name. No impersonation.
+- Email + password and magic link for humans in MVP; SSO later. Session cookie for the app.
+- Generic **API token** (Bearer): minted for a user/membership, role at or below the minter. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the user the token was minted for. No `/agents` endpoint. No agent token.
 - Roles: Owner / Member / Viewer only. **Any Member or Owner can accept.** Viewers read-only. Requester *should* accept; My Work surfaces Delivered. No accept ACL in MVP. History is undo.
 - Feature/Bug reject → `rejected`; Restart → `started`; stays in Current.
 - Default points Linear 0/1/2/3. Fibonacci 0/1/2/3/5/8 and Powers of 2 later. Custom later and revertible.
 - Icebox is **MVP**, own slice. Not Phase 3.
-- Same REST API for humans and agents (`/api/v1/...`). Webhooks are a product feature for any client, not an agent privilege.
+- Same REST API (`/api/v1/...`) for cookie and Bearer. Same handlers. Webhooks are a product feature for any Member/Owner client.
 - Mentions: in-app + email in Phase 1.
 - CSV Phase 3. No custom fields ever.
 - Initial velocity 10. Feature points only.
@@ -117,11 +117,11 @@ MVP ships **Feature** plus Icebox/Backlog/Current/Done. Phase 2 adds Bug, Chore,
 | schedule (Icebox → list) | unscheduled | unstarted | Owner, Member |
 | icebox (list → Icebox) | unstarted only | unscheduled | Owner, Member |
 | estimate | any except accepted | same; sets points | Owner, Member |
-| start | unstarted **or** unscheduled (Icebox) | started | Owner, Member. Feature must already be estimated. Icebox start is schedule + start; story lands in Current. Shared machine rule — not an agent exception. |
+| start | unstarted **or** unscheduled (Icebox) | started | Owner, Member. Feature must already be estimated. Icebox start is schedule + start; story lands in Current. |
 | finish | started | finished | Owner, Member |
 | deliver | finished | delivered | Owner, Member |
-| accept | delivered | accepted | Owner or Member (any). Not Viewer. A Member agent may accept. |
-| reject | delivered | rejected | Owner or Member (any). Not Viewer. A Member agent may reject. Reason required (comment). |
+| accept | delivered | accepted | Owner or Member (any). Not Viewer. |
+| reject | delivered | rejected | Owner or Member (any). Not Viewer. Reason required (comment). |
 | restart | rejected | started | Owner, Member |
 | undo | last state-changing activity | previous state | Owner, Member |
 
@@ -141,8 +141,8 @@ No estimate. Optional **target date** (a comparison, not a plan override). Place
 
 ## Story owners, requester, follow
 
-- **Requester:** creating human. May be changed to another human Member/Owner. Never an agent. Never a Viewer as requester unless we later allow it — **requester must be able to accept**, so Member or Owner.
-- **Owners:** 0–5 project Members, Owners, or agents. Start assigns the clicker.
+- **Requester:** creating Member or Owner. May be changed to another Member/Owner. Never a Viewer as requester unless we later allow it — **requester must be able to accept**, so Member or Owner.
+- **Owners:** 0–5 project Members or Owners. Start assigns the clicker.
 - **Follow:** requester and owners auto-follow and **cannot unfollow**. Others may follow (Member/Owner). Viewers do not follow.
 
 ## Existing schema (ground)
@@ -251,7 +251,7 @@ Acceptance criteria:
 
 - Given `delivered`, when a Member or Owner rejects with a reason, then state is `rejected`, the reason is visible, the story stays in Current (not Backlog, not Icebox).
 - Empty reason → reject does not happen.
-- Viewer cannot reject. A Member (human or agent) can.
+- Viewer cannot reject. A Member can.
 - Given `rejected`, when someone clicks **Restart**, then state is `started`, still Current, reason remains in activity.
 - After Restart they can Finish and Deliver again. A new Accept is required.
 - Fail the slice if reject jumps straight to `started` with no Restart, or if `rejected` is treated as terminal like `accepted`.
@@ -337,8 +337,8 @@ Acceptance criteria:
 Why independently acceptable: the row shows who owns the story; the requester can be handed off.
 
 Acceptance criteria:
-- Given a story, when I add owners, then 0–5 project Members/Owners/agents are accepted; the sixth is rejected with that limit. Start already assigned the clicker (slice 4).
-- Requester change: another human Member or Owner on the project. Never an agent. Never a Viewer.
+- Given a story, when I add owners, then 0–5 project Members/Owners are accepted; the sixth is rejected with that limit. Start already assigned the clicker (slice 4).
+- Requester change: another Member or Owner on the project. Never a Viewer.
 - Requester and owners auto-follow and cannot unfollow. Other Members/Owners may follow/unfollow.
 - Viewer cannot assign, change requester, or follow.
 - This slice adds the owners table. Do not overload requester_id.
@@ -359,7 +359,7 @@ Acceptance criteria:
 Acceptance criteria:
 
 - Description and comments: headings h1–h3, bold, italic, strikethrough, lists, fenced code, inline code, block quotes, links. No raw HTML. `javascript:` URLs rejected.
-- Comments have author (human or later agent) and timestamp. Empty comments rejected. Description may be empty.
+- Comments have author and timestamp. Empty comments rejected. Description may be empty.
 - Edited mark. Deleted comments tombstoned, not silently erased.
 - Viewer can read, cannot write.
 - Comments table does not exist yet; this slice adds it. `stories.description` already exists.
@@ -414,7 +414,7 @@ Acceptance criteria:
 
 ---
 
-# Phase 2 — Types, dates, search, agents
+# Phase 2 — Types, dates, search, API
 
 ### Slice 18 — Member files a bug, chore, or release
 
@@ -478,24 +478,21 @@ Acceptance criteria:
 - Results do not reorder the board. Empty result: one next action (clear).
 - Scoped to the current project in this slice.
 
-### Slice 23 — Agent authenticates and uses the same story API as the frontend
+### Slice 23 — Member or Owner mints an API token and calls the same story API
 
-**Why independently acceptable:** Grove delivers when CI is green, as Grove, on the same endpoints Luis uses.
-
-Rules: [agent-api.md](./agent-api.md).
+**Why independently acceptable:** a client (CI, a script, Grove) delivers when CI is green, on the same endpoints Luis uses, with a Bearer token.
 
 Acceptance criteria:
 
-- Owner or Member creates a named agent token bound to an actor that **has a project membership** of Owner, Member, or Viewer. Bound to one organisation and one or more projects they can open. Secret shown once. The token does not add scopes beyond that role.
-- Bearer token. Same paths (`/api/v1/...`), same request bodies, same errors as the frontend. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the agent uses that same shared machine — not a private verb list. There is no agent-only transition API. There is no `unstart` verb.
+- Owner or Member mints a generic **API token** for a user/membership, with a role at or below the minter. Member cannot mint Owner. Bound to one organisation and one or more projects they can write. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
+- Bearer token. Humans can also use a session cookie. Same `/api/v1` handlers, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. There is no `/agents` endpoint. There is no agent token. There is no `unstart` verb.
 - Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`).
-- Member-bound token **can** accept a delivered Feature (and reject with a reason). Same as a Member human. No `human_judgment_required`.
+- Member-bound token **can** accept a delivered Feature (and reject with a reason). Same as a Member with a cookie.
 - Start on unestimated Feature → `unestimated`, no state change (shared machine rule).
 - Illegal transition → `invalid_transition` with `from` and `action`.
-- Icebox Start of an estimated Feature lands `started` in Current — shared Member rule, not an agent exception.
+- Icebox Start of an estimated Feature lands `started` in Current — shared Member rule.
 - Revoked token → `unauthorized`. Viewer cannot create tokens.
-- You can only mint an agent token with a role at or below your own. Member cannot mint Owner.
-- Webhooks, if registered, are a product feature for any Member/Owner client, not an agent privilege.
+- Webhooks, if registered, are a product feature for any Member/Owner client. Events include story created/updated/reordered, story started/finished/delivered/accepted/rejected/restarted, comment created, iteration completed, membership changed. Signed outbound POST; delivery is not a command.
 
 ### Slice 24 — Member saves a search and opens My Work
 
@@ -575,7 +572,7 @@ Acceptance criteria:
 | --- | --- |
 | **Reviewer** | Always. Spec is not ready until they agree it is clear, vertical, and testable. |
 | **UI Designer** | Entire product is new UI. Manifesto + **locked** frontend guide. They write `ui.md` (including shortcuts). They do not invent bloom/stem/paper. |
-| **Technical Lead** | Stack, ports, and eight tables are constrained; approach is not. They write `technical-approach.md`: tenancy, machines, live updates, agents, planning recompute. |
+| **Technical Lead** | Stack, ports, and eight tables are constrained; approach is not. They write `technical-approach.md`: tenancy, machines, live updates, API tokens, planning recompute. |
 | **Developer** | One slice at a time. Documented PR. |
 | **QA** | Tests each slice from AC plus the companion rule docs. Can fail a slice without a meeting. |
 

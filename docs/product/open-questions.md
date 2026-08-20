@@ -4,7 +4,7 @@ Only **true forks** — things we cannot assume. Everything else is decided. If 
 
 ## True forks
 
-1. **~~Agent accept / reject.~~ Locked.** Not a fork. Same permissions as the membership role. A Member agent can accept and reject Features. Cookie vs bearer is the only auth difference. See Decisions locked.
+1. **~~Agent product / agent token / `/agents`.~~ Locked.** Not a fork. There is no agent product. Generic **API tokens** (Bearer) use the same `/api/v1` handlers as a session cookie. Owner / Member / Viewer is the whole model. See Decisions locked.
 2. **Organisation slug and URL.** We assume a human-facing organisation name plus whatever URL the Technical Lead needs. Fork: public slug uniqueness vs per-user uniqueness.
 3. **Project timezone source.** Rollover is midnight in the project timezone. Fork: store an explicit project TZ (recommended) vs infer from the creating owner and never show a setting in MVP.
 4. **Icebox order vs backlog order.** Tracker Icebox is its own ordered list, not interleaved with Backlog. We assume that. Fork: one global rank including Icebox (filter by state) vs two ranks.
@@ -39,11 +39,11 @@ If Dan does not answer, the “we assume” side ships.
 - Bugs/chores points toggle later and **reversible**.
 - History is undo (latest state-changing activity can be undone).
 
-### Auth and agents
+### Auth and API tokens
 
-- Humans: email + password **and** magic link in MVP. SSO later.
-- Agents: bearer token bound to an actor that has a project membership. Same Owner / Member / Viewer permissions as that role. No extra scopes. Attribution is the agent’s name. No impersonation.
-- Same REST API (`/api/v1/...`) for humans and agents. Webhooks are a product feature for any client, not an agent privilege. GraphQL later (product-wide, not an agent surface).
+- Humans: email + password **and** magic link in MVP. SSO later. Session cookie for the app.
+- Generic **API token** (Bearer): minted for a user/membership, with a role at or below the minter. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the user the token was minted for. There is no agent token and no `/agents` endpoint.
+- Same REST API (`/api/v1/...`) for cookie and Bearer. Same handlers. Webhooks are a product feature for any client. GraphQL later (product-wide).
 - Mentions: in-app + email in Phase 1. Slack later.
 
 ### Scope
@@ -84,7 +84,7 @@ Keyboard and signup (UI Designer proposals, Product Owner accepted):
 - **O** opens the story sheet. Enter stays the primary verb (Start / Finish / Deliver / Accept / Restart). Esc closes. Click the title also opens.
 - Epic visual: no new purple hex. Epic pill is Bloom-bordered. Product language “purple label” means epic-marked, not a fifth brand colour.
 - Slice 30 manual Current: when auto-plan is off, drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current is still illegal (Pull to Backlog or Start).
-- Start from Icebox: estimate-then-Start from Icebox is allowed (Feature must be estimated). It is schedule + start in one verb. The story lands `started` in Current. Shared machine rule for any Member — not an agent exception.
-- **Agent permissions.** Same permissions as the membership role. A Member agent can accept and reject. Cookie vs bearer is the only auth difference. No `human_judgment_required`, no reserved `stories:accept` scope, no typical-CI scope menu.
-- You can only mint an agent token with a role at or below your own. Member cannot mint Owner.
+- Start from Icebox: estimate-then-Start from Icebox is allowed (Feature must be estimated). It is schedule + start in one verb. The story lands `started` in Current. Shared machine rule for any Member.
+- **API tokens (locked).** Generic Bearer token minted for a user/membership. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Owner / Member / Viewer only. No `/agents`, no agent token, no agent-only error codes, no `human_judgment_required`, no `stories:accept` / `stories:transition` scopes, no typical-CI scope menu.
+- You can only mint an API token with a role at or below your own. Member cannot mint Owner.
 

@@ -13,7 +13,7 @@ This is the Technical Lead approach for implementers. It does not replace the pr
 | Topic | Wins |
 | --- | --- |
 | Packing, velocity, rollover, releases, dates | `velocity-and-planning.md` |
-| How agents authenticate and are attributed | `agent-api.md` (same `/api/v1` as humans; no second verb or scope set) |
+| Auth, API tokens, attribution | this file + `product-spec.md` roles (Owner / Member / Viewer) |
 | Organisations, roles, isolation | `multitenancy.md` |
 | Slice order and acceptance criteria | `product-spec.md` |
 | Copy-exactly vs modernise | `tracker-brief.md` |
@@ -21,7 +21,7 @@ This is the Technical Lead approach for implementers. It does not replace the pr
 | Existing eight tables, rank type, string states | `000001_create_core_schema.up.sql` |
 | Quality bar, no fallbacks, TDD, 90% | repo `AGENTS.md` + `api/internal/migrations/AGENTS.md` |
 
-If a slice, mock, or this file disagrees with the velocity doc on packing, the velocity doc wins. Agents call the same `/api/v1` as the frontend. Project role wins on what they can do. `agent-api.md` is authentication + attribution, not a second contract. If something is unspecified, it is marked **unspecified** below; an implementation assumption is listed only where a column or locked stack forces a choice.
+If a slice, mock, or this file disagrees with the velocity doc on packing, the velocity doc wins. Cookie sessions and Bearer API tokens call the same `/api/v1` as the frontend. Project role (Owner / Member / Viewer) wins on what they can do. If something is unspecified, it is marked **unspecified** below; an implementation assumption is listed only where a column or locked stack forces a choice.
 
 Do not implement until the Reviewer has cleared the spec set. Do not open a PR from this document. Do not overwrite `docs/reference/*` or `docs/migrations*`. Same-PR product correction of `docs/product/overview.md` is owned by LANDING, not by this file.
 
@@ -91,7 +91,7 @@ Frontend does **not** recompute velocity or panel membership. It renders what th
 
 Existing repo README exposes `/health`, `/ready`, `/api/version`, and **`/api/v1/*`** on 8180.
 
-**Decision:** one mount, `/api/v1`. Humans (cookie session) and agents (`Authorization: Bearer flr_...`) call the same resource paths. Example: `POST /api/v1/stories/:id/transitions`. Do not run a second `/v1` tree. Do not build a special agent API, special verbs, or agent-only scopes.
+**Decision:** one mount, `/api/v1`. Cookie sessions and Bearer API tokens (`Authorization: Bearer flr_...`) call the same resource paths. Example: `POST /api/v1/stories/:id/transitions`. Do not run a second `/v1` tree. Cookie vs Bearer is the only auth difference. Owner / Member / Viewer is the whole permission model.
 
 SPA origin is `:4273`, API is `:8180` (cross-origin, same-site on localhost). CORS: explicit `FRONTEND_ORIGIN` (never `*`), credentials allowed. Production: put both behind one origin and drop credentialed CORS if possible.
 
@@ -101,7 +101,7 @@ SPA origin is `:4273`, API is `:8180` (cross-origin, same-site on localhost). CO
 - `stories.rank VARCHAR(64)` fractional / lexicographic. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500.
 - `story_type` and `state` as strings. No DB enums, checks-as-enums, triggers, or functions.
-- `activities.actor_id → users`. Agents get a `users` row (see systems design). Do not make `actor_id` polymorphic in Phase 0.
+- `activities.actor_id → users`. An API token belongs to a `users` row (`api_tokens.user_id`). `actor_id` is that user. Do not make `actor_id` polymorphic in Phase 0.
 - `projects.point_scale`, `projects.iteration_length_weeks` — already present; add columns, do not rename.
 - Unique `(project_id, user_id)` on memberships; unique `(project_id, number)` on iterations.
 - `docs/reference/*`, existing `000001`, Prophet ports, locked look.
@@ -178,8 +178,9 @@ Cookie: `flower_session`, HttpOnly, SameSite=Lax, Path=/, Secure in production. 
 
 - `users.email_verified_at TIMESTAMP NULL`. Password signup cannot create an organisation until this is set. A magic-link hit on a new email **is** verification.
 - `users.password_hash` becomes **nullable** (schema-only). Magic-link-only accounts have `NULL`. Password login on `NULL` is `unauthorized` with a message to use the magic link — that is a real branch, not a fallback hash.
-- `users.actor_kind VARCHAR(20) NOT NULL` default `human` (Go: `human` \| `agent`). Session and magic-link login reject `actor_kind != human`.
 - `users.last_project_id` optional; session `last_project_id` is enough for “land on my last project” if updated on board load.
+
+Session login is for users with passwords or magic links. An API token is not a login identity and does not create a session.
 
 **Username (locked 20 Aug 2026):** infer from the email local-part. No username field in slice 0. `users.username` is `NOT NULL UNIQUE`. Slice 0 must persist one: derive from the email local-part (`[a-z0-9_]+`, trim to 100); if taken, append `-` + 4 random unambiguous chars. Allow edit later when a profile slice exists. Do not write an empty string (that is a fallback).
 
@@ -225,11 +226,11 @@ Resend: revoke (or consume) the old row, insert a new hash. Email already a memb
 3. Else: if the project’s organisation is not one they belong to → **404** on id fetch. If they belong to the org but not the project → **404** (enumeration: project lists only return projects they can open).
 4. Same-tenant, known project, insufficient role on a mutation → `forbidden` (403). Viewers can GET the board; `POST /stories` is `forbidden`, not 404.
 
-A Bearer token authenticates as the agent’s `users` row. Then this same function. Do not check a scope list.
+A Bearer token authenticates as `api_tokens.user_id`. Then this same function, except the effective role on **that project only** is the token’s assigned `role` (already capped at the minter’s effective role when minted). Token used on any other project → `not_found` (404), same as cross-tenant. Do not check a scope list.
 
 Cross-tenant id (story, project, attachment, token) → **404** / `not_found`. Never 403 for “exists in another organisation.”
 
-Organisation owner can do anything a project owner can. Any **Member or Owner** can accept / reject Features, human or agent. Viewers cannot. Cookie vs Bearer is the only auth difference. Insufficient role → `forbidden` (same code for a Viewer human and a Viewer agent). Do not add an accept ACL or an agent-only error code. Do not check a scope list.
+Organisation owner can do anything a project owner can. Any **Member or Owner** can accept / reject Features (cookie session or Bearer). Viewers cannot. Cookie vs Bearer is the only auth difference. Insufficient role → `forbidden`. Do not add an accept ACL or extra error codes. Do not check a scope list.
 
 **Email:** product does not name a vendor. `platform/email` is an interface. Production: SMTP from env. Dev/test: a real **outbox** table written in the same transaction as the token row; a worker or test helper sends/reads it. Tests assert outbox rows. Do not “succeed” without a stored token. Do not log raw links at info level in production (debug in test env only).
 
@@ -237,9 +238,9 @@ Organisation owner can do anything a project owner can. Any **Member or Owner** 
 
 Business rules live in Go. No DB enum, trigger, or function.
 
-One table-driven package: `domain/story/machine`. Input: type, from-state, action, **effective role**, estimate — not actor kind, not scopes. Output: to-state or a coded error (`invalid_transition`, `unestimated`, `forbidden`, `validation_failed`). Actor kind is attribution only (and “requester cannot be an agent”).
+One table-driven package: `domain/story/machine`. Input: type, from-state, action, **effective role**, estimate — not a scope list. Output: to-state or a coded error (`invalid_transition`, `unestimated`, `forbidden`, `validation_failed`).
 
-One machine for humans and agents. `product-spec.md` wins on verbs. There is no agent-specific verb table. Project role decides who may call a verb; the token does not carry a scope list.
+One machine. `product-spec.md` wins on verbs. Who = Owner / Member; Viewers forbidden. Project role decides who may call a verb; the token does not carry a scope list. Machines live in this domain package and in product-spec only.
 
 **Feature / Bug**
 
@@ -251,24 +252,24 @@ One machine for humans and agents. `product-spec.md` wins on verbs. There is no 
 | start | unscheduled (Icebox) | started | Owner, Member; this verb is schedule+start. Story lands started in Current (may overflow velocity). Feature must already be estimated (`0` allowed). |
 | finish | started | finished | Owner, Member |
 | deliver | finished | delivered | Owner, Member |
-| accept | delivered | accepted | Owner, Member (human or agent) |
-| reject | delivered | rejected | Owner, Member (human or agent); non-empty reason |
+| accept | delivered | accepted | Owner, Member |
+| reject | delivered | rejected | Owner, Member; non-empty reason |
 | restart | rejected | started | Owner, Member |
-| undo | last state-changing activity | previous | Owner, Member (human or agent; same rules). Viewer cannot. |
+| undo | last state-changing activity | previous | Owner, Member (same rules). Viewer cannot. |
 
 Viewers cannot call any of the above. Insufficient role → `forbidden`.
 
-**Chore:** unscheduled → unstarted → started → accepted. `finish` is the verb; result is `accepted`. No delivered / reject. Member or Owner may finish (human or agent).
+**Chore:** unscheduled → unstarted → started → accepted. `finish` is the verb; result is `accepted`. No delivered / reject. Member or Owner may finish.
 
 **Release:** unscheduled in Icebox; created in Backlog or scheduled → auto-`started`. `finish` → `accepted`. No estimate.
 
 `PATCH` must not write `state`. There is no `unstart` verb. Icebox is `icebox`. Undo is `undo` (slice 15). Product-spec undo is the latest state-changing activity for any Owner/Member — not “own last change only”, and not blocked because a human accepted.
 
-**Start Feature** without estimate → `unestimated`, no mutation. `0` is allowed. Start assigns the clicker (human or agent) as a story owner if owners < 5; if already 5 and clicker is not among them, Start still happens and they are **not** added (product). Auto-follow the clicker (requester and owners cannot unfollow — slice 4 AC requires follow to exist).
+**Start Feature** without estimate → `unestimated`, no mutation. `0` is allowed. Start assigns the clicker as a story owner if owners < 5; if already 5 and clicker is not among them, Start still happens and they are **not** added (product). Auto-follow the clicker (requester and owners cannot unfollow — slice 4 AC requires follow to exist).
 
 **Reject reason (Phase 0):** product calls it a comment; the comments table is slice 13. Phase 0 stores the reason on `activities` (`kind = story.rejected`, `summary` = reason) and returns it on the story payload as `reject_reason` from the latest reject activity. Empty reason → `validation_failed`, no state change. Do not invent a comments table in Phase 0. Slice 13 may also write a comment; **unspecified** whether both exist — do not do both until specified.
 
-**Optimistic concurrency:** add `stories.revision INTEGER NOT NULL` default 1, incremented on every story mutation (fields, rank, state, estimate). Agents send `revision` or `If-Match`. Stale → `conflict`. Humans: last-write-wins on the board is unacceptable for rank/state; the SPA sends `revision` as well.
+**Optimistic concurrency:** add `stories.revision INTEGER NOT NULL` default 1, incremented on every story mutation (fields, rank, state, estimate). Clients send `revision` or `If-Match`. Stale → `conflict`. Last-write-wins on the board is unacceptable for rank/state; the SPA sends `revision` as well.
 
 **`started_at`:** add `stories.started_at TIMESTAMP NULL`. Set on the **first** successful `start` only. Reject / restart do not clear it (cycle-time assumption, slice 27). Do not reset the clock.
 
@@ -410,57 +411,55 @@ Serve only via authenticated `GET /api/v1/attachments/:id` (effective role ≥ v
 
 Validate type by sniffed bytes, not only extension. Over 10 MB or 21st image → `validation_failed`.
 
-### Agent tokens and webhooks (slice 23)
+### API tokens and webhooks (slice 23)
 
-Agents are first-class **named actors for attribution**. They do not impersonate the minting human. Activity name is the agent’s name (`activities.actor_id` → the agent’s `users` row, `actor_kind=agent`).
+A generic **API token** (Bearer `flr_...`) authenticates as a user. Humans can also use a session cookie. Same `/api/v1` handlers. What the caller can do is Owner / Member / Viewer. The token does not add scopes.
 
-They call the **same** HTTP API the SPA uses (`/api/v1/...`). Cookies stay for human browser sessions; agents send `Authorization: Bearer flr_...` on those same routes. What they can do is the project role of the token’s actor (Owner / Member / Viewer), plus the resource permissions already specified (read/write/delete story, invite, settings, …). There is no special agent API, no special verbs, and no agent scope list. Do not invent scopes.
-
-**Users row for the agent** (ground: `activities.actor_id → users`):
-
-- Insert `users` with `actor_kind = agent`, `password_hash NULL`, unique `username` = agent name slug, unique `email` = `agent-<uuid>@invalid` (not a login identity; session/magic-link reject this kind).
-- `users.id` is the actor id. Display name = agent name.
-- Grant projects by inserting `project_memberships` for that user (`owner` | `member` | `viewer`). Reuse the same table. Do not invent `agent_token_projects` or a parallel permission system.
-- Bind the agent to **one** organisation (`agents.organisation_id`). Cannot widen. Organisation membership follows the same rule as humans: they are in the organisation because they have at least one project membership (and/or the `agents` row).
+Activity `actor_id` → the user the token was minted for. Optional token `name` may appear as an activity label.
 
 ```
-agents
+api_tokens
   id UUID PK
-  user_id → users RESTRICT          -- actor
   organisation_id → organisations RESTRICT
-  name VARCHAR(255) NOT NULL        -- same string as users.display_name
+  user_id → users RESTRICT          -- who the token authenticates as
   created_by_user_id → users RESTRICT
-  created_at TIMESTAMP NOT NULL
-
-agent_tokens
-  id UUID PK
-  agent_id → agents CASCADE
+  name VARCHAR(255) NOT NULL        -- label for list / revoke / activity
   token_prefix VARCHAR(16) NOT NULL -- listed after create
   token_hash VARCHAR(64) NOT NULL UNIQUE
   revoked_at TIMESTAMP NULL
   created_at TIMESTAMP NOT NULL
+
+api_token_grants
+  token_id → api_tokens CASCADE
+  project_id → projects RESTRICT
+  role VARCHAR(20) NOT NULL         -- owner | member | viewer
+  UNIQUE (token_id, project_id)
 ```
 
-No `agent_tokens.scopes`. No `agent_token_projects`.
+Bound to **one** organisation. Cannot widen.
 
-Mint / list / revoke (shared `/api/v1`; same role rules as a human — Owner or Member on the projects they can write):
+Mint / list / revoke (Owner or Member on the projects they can write):
 
 ```
-POST /api/v1/organisations/:organisation_id/agents
-{ "name": "Grove", "projects": [ { "project_id": "...", "role": "member" } ] }
+POST /api/v1/organisations/:organisation_id/tokens
+{ "name": "CI", "user_id": "...optional, default minter...", "projects": [ { "project_id": "...", "role": "member" } ] }
 ```
 
-Returns the agent (id, name, projects + roles) and the raw secret **once**. Also: `GET` list for that organisation (callers see agents on projects they can write; Owners see all on those projects). Revoke: `POST /api/v1/agent-tokens/:id/revoke` (immediate).
+Returns the token (id, name, user, projects + roles) and the raw secret **once**. Also: `GET /api/v1/organisations/:organisation_id/tokens` (callers see tokens on projects they can write; Owners see all on those projects). Revoke: `POST /api/v1/tokens/:id/revoke` (immediate).
 
-Secret format: `flr_<random>`. Shown **once**. Store hash only. Revoke is immediate (next call → `unauthorized`). Viewer cannot create / list secrets / revoke. Owner or Member, for projects they can write (see assumptions for assignable roles). Typical CI “Grove”: actor is **Member** on the project — can start / finish / deliver **and** accept / reject. Viewer token is read-only.
+Role on each grant must be at or below the minter’s effective role on that project. Member cannot mint Owner. Default `user_id` is the minter. Effective role for a request is the grant role (then the same effective-role function). Viewer cannot create / list secrets / revoke. Token used on a project with no grant → `not_found` (404).
 
-`GET /api/v1/me` for an agent: id, name, organisation, projects, **role per project** — never the minting human’s email as the actor, never a scope list.
+Secret format: `flr_<random>`. Shown **once**. Store hash only. Revoke is immediate (next call → `unauthorized`).
 
-Transitions: same `POST /api/v1/stories/:id/transitions` with `{ "action": ... }`. Member / Owner agent accept / reject **succeeds**. Viewer → `forbidden` (same as a Viewer human). Start unestimated Feature → `unestimated`. Illegal → `invalid_transition` with `from` and `action`. Cross-tenant → `not_found`. Revoked token → `unauthorized`.
+`GET /api/v1/me` with Bearer: the user the token authenticates as (id, name, organisation, projects, **role per project**). Same shape as a cookie session. Never a scope list.
 
-Create story: **one API**. Do not split “agents must send story_type, humans may omit.” Shared rule: the API may default omitted `story_type` to Feature (the UI also posts Feature). `requester_id` is required and must be a human Member / Owner. Default icebox if panel omitted. See assumptions if `product-spec.md` still splits the contract.
+Typical CI token named `"CI"` with grant **Member** can start / finish / deliver **and** accept / reject. Viewer grant is read-only.
 
-Bulk (shared route, useful for agents; humans may call it): max 50, all-or-nothing, `Idempotency-Key`. Same key + body → original result. Same key + different body → `conflict`.
+Transitions: same `POST /api/v1/stories/:id/transitions` with `{ "action": ... }`. Member / Owner accept / reject **succeeds** (session or Bearer). Viewer → `forbidden`. Start unestimated Feature → `unestimated`. Illegal → `invalid_transition` with `from` and `action`. Cross-tenant or no grant on that project → `not_found`. Revoked token → `unauthorized`.
+
+Create story: **one API**. The API may default omitted `story_type` to Feature (the UI also posts Feature). `requester_id` is the authenticated user and must be a Member / Owner. Default icebox if panel omitted.
+
+Bulk (shared route; session or Bearer): max 50, all-or-nothing, `Idempotency-Key`. Same key + body → original result. Same key + different body → `conflict`.
 
 ```
 idempotency_keys
@@ -473,7 +472,16 @@ idempotency_keys
   UNIQUE (project_id, key)
 ```
 
-**Webhooks:**
+**Webhooks** are outbound project hooks (not a command API):
+
+
+```
+POST /api/v1/projects/:project_id/webhooks
+GET  /api/v1/projects/:project_id/webhooks
+POST /api/v1/webhooks/:id/revoke
+```
+
+Owner or Member; Viewer cannot. Secret shown once.
 
 ```
 webhooks
@@ -499,7 +507,7 @@ webhook_deliveries
 
 Signature (Technical Lead scheme): header `X-Flower-Signature: t=<unix>,v1=<hex>` where `v1` is HMAC-SHA256 of `{t}.{raw_body}` with the raw webhook secret. Receivers must reject if `|now - t| > 300s`. At-least-once. Retry non-2xx. Timeout 10s. Delivery is not a command; ignore reply body. Worker in the API process.
 
-Events: those listed in `agent-api.md`. Envelope as specified (`event_id`, `organisation_id`, `project_id`, `actor.kind` `human` \| `agent`).
+Events align with SSE names where they overlap (`story.created`, `story.updated`, `story.reordered`, `story.started`, `story.finished`, `story.delivered`, `story.accepted`, `story.rejected`, and later comment/attachment events when those slices land). Envelope: `event_id`, `organisation_id`, `project_id`, `actor_id` (the user), optional `token_name`.
 
 **Rate limits (product: a well-behaved 1 rps single-story transition must not 429).** Limits apply by credential (Bearer token vs session), not by special verbs:
 
@@ -511,7 +519,7 @@ Events: those listed in `agent-api.md`. Envelope as specified (`event_id`, `orga
 
 In-memory per process in MVP (same single-replica assumption as SSE). `rate_limited` + 429 + `Retry-After`.
 
-Error envelope for **all** 4xx/409 (humans and agents) — **one** envelope:
+Error envelope for **all** 4xx/409 (session or Bearer) — **one** envelope:
 
 ```
 { "error": { "code": "invalid_transition", "message": "...", "from": "unstarted", "action": "finish" } }
@@ -526,7 +534,7 @@ No 200 with a partial surprise. No coerce (start that silently estimates 1).
 ```
 story_owners
   story_id → stories CASCADE
-  user_id → users CASCADE          -- human or agent user
+  user_id → users CASCADE
   UNIQUE (story_id, user_id)
   -- max 5 enforced in Go; sixth → owners_full
 
@@ -536,7 +544,7 @@ story_followers
   UNIQUE (story_id, user_id)
 ```
 
-Viewers do not follow. Requester is a human Member/Owner, never an agent.
+Viewers do not follow. Requester is a Member or Owner.
 
 ### Phase 0 HTTP (session cookie or Bearer; same routes)
 
@@ -581,7 +589,7 @@ Only what a slice cannot ship without. No drive-by.
 | Add `organisation_id` / timezone / velocity settings on `projects` | Missing vs product; do not recreate `projects` | 0 / 8 |
 | Add freeze columns on `iterations` | History-stable velocity | 8 |
 | Add `revision`, `rank_list`, `started_at` on `stories` | Concurrency, two lists, cycle-time later | 2 / 4 |
-| Add `email_verified_at`, `actor_kind` on `users` | Slice 0 AC + agents | 0 |
+| Add `email_verified_at` on `users` | Slice 0 AC | 0 |
 
 **Do not take in these slices:**
 
@@ -605,18 +613,18 @@ Only what a slice cannot ship without. No drive-by.
 | Double rollover / missed rollover | Ticker + request path; TZ midnight | `completed_at IS NULL` guard; injected `Clock`; test env clock endpoint; assert freeze is idempotent |
 | Rank unique collisions / 64-char overflow | Two lists; midpoint can grow | `rank_list` in the unique key; rebalance in-transaction; tests at the 64-char edge |
 | Cross-tenant leaks (id guess, search, files, tokens) | Multitenant from day one; 000001 has no org | Every query joins organisation; miss → 404; attachment GET checks org+project+auth; isolation tests ride slices 0, 1, 23 |
-| `activities.actor_id` cannot point at a non-user | Agents must be attributed as themselves | Agent `users` row + `actor_kind`; login rejects agents; never attribute the minting Member |
+| Token treated as a second identity | Activity needs a user; a token is not a login | `actor_id` = `api_tokens.user_id`; optional token `name` in activity payload/summary; session login stays password/magic-link |
 | Session cookie on :4273 → :8180 | Cross-origin | Explicit CORS origin + credentials; prod same-origin proxy |
 | SSE lost across API replicas | In-process bus | Single replica in MVP; `Bus` interface; do not pretend it is multi-node |
 | Webhook retry storms | At-least-once | Cap attempts (implementation: 8, exponential backoff); `event_id` for receiver idempotency; do not POST back as a user |
 | Magic link / invite token leak | Email and logs | Store hashes only; single-use; 14-day invite; do not log raw tokens |
 | Clock skew vs project TZ | Rollover definition is midnight **project** TZ | Store TZ; default `Australia/Melbourne`; all comparisons via `Clock` + that TZ |
-| Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Agents will implement the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
+| Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Implementers will follow the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
 | Dummy `password_hash` for magic-link users | Hidden branch, forbidden by AGENTS.md | Nullable column; password login refuses NULL |
 | Existing projects without `organisation_id` if 000001 already ran | NOT NULL add | Schema: add nullable, boot **backfill** in Go (create an organisation only for orphan rows if any exist — this is data, not a SQL migration), then schema NOT NULL. Empty greenfield: backfill is a no-op |
 | Unique rank violation under concurrent drag | Two Members reorder | `revision` + one retry; then `conflict`; UI snaps back |
 | File store credentials / public buckets | Tenant files | Auth-only GET; key prefixed by organisation_id; no public ACL |
-| Rate limiter per process | Two replicas double the limit | Accept in MVP; document; do not 429 a 1 rps agent |
+| Rate limiter per process | Two replicas double the limit | Accept in MVP; document; do not 429 a well-behaved 1 rps single-story transition |
 
 ---
 
@@ -637,7 +645,6 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 - Board GET: four panels, all empty, V displays 10, no fake stories, no fake dates.
 - Reload: same organisation / project ids.
 - Cross-tenant: session A `GET` project/story id from org B → 404.
-- `actor_kind = agent` cannot create a session.
 
 **QA**
 
@@ -713,8 +720,8 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 - started → finish → `finished`, still Current.
 - finished → deliver → `delivered`, still Current.
 - Any Member or Owner accept → `accepted`, `accepted_at` set, still Current, Done empty.
-- Viewer finish/deliver/accept → `forbidden` (human session or Viewer agent).
-- Member or Owner agent accept Feature → `accepted` (same as a human Member/Owner). Viewer agent accept → `forbidden`, no change.
+- Viewer finish/deliver/accept → `forbidden` (session or Bearer).
+- Member or Owner accept Feature (session or Bearer) → `accepted`. Viewer Bearer accept → `forbidden`, no change.
 - finish on unstarted, accept on finished → `invalid_transition`, no change.
 - Tasks/blockers do not exist yet; do not block accept.
 
@@ -728,7 +735,7 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 
 - delivered + reject + reason → `rejected`, still Current; reason on activity.
 - Empty reason → no change, `validation_failed`.
-- Viewer reject (human or agent) → `forbidden`. Member or Owner agent reject with reason → `rejected` (same as a human Member/Owner).
+- Viewer reject (session or Bearer) → `forbidden`. Member or Owner reject with reason (session or Bearer) → `rejected`.
 - Restart → `started`, still Current; reason remains in activity.
 - Finish + deliver again; new accept required.
 - Fail if reject jumps to `started` with no Restart, or if `rejected` is treated as terminal like `accepted`.
@@ -778,7 +785,7 @@ Normative tests = velocity doc worked examples 1–3 **and** its QA short script
 
 ### Isolation tests (ride 0, 1, 23)
 
-From `multitenancy.md`: same title in org A and B, search/list only A; A fetches B’s id → 404; token from org A on org B → 404/`unauthorized` (membership, not a scope check); attachment from A, signed-out → no file; viewer `POST /stories` → `forbidden` (human session or Viewer agent — same code).
+From `multitenancy.md`: same title in org A and B, search/list only A; A fetches B’s id → 404; Bearer whose token is not on that project → 404; attachment from A, signed-out → no file; viewer `POST /stories` → `forbidden` (session or Bearer — same code).
 
 ### Later phases (notes, not Phase 0 work)
 
@@ -787,7 +794,7 @@ From `multitenancy.md`: same title in org A and B, search/list only A; A fetches
 | 9 tasks | Toggle persists; complete-all does not Finish; accept **warns**; viewer read-only |
 | 10 blockers | Free-text + optional same-project story; auto-resolve on accept/delete; warn on accept |
 | 11 labels | Existing tables; `[a-z0-9-]+`; column max 100; do not exceed 100; filter does not change rank |
-| 12 owners / mentions | Max 5; requester human; in-app + email; viewer mentionable, cannot follow |
+| 12 owners / mentions | Max 5; requester is a Member/Owner; in-app + email; viewer mentionable, cannot follow |
 | 13 Markdown / comments | No raw HTML; `javascript:` rejected; tombstone delete |
 | 14 attachments | Type/size/count; auth GET; paste; missing-image after delete |
 | 15 activity / undo | No reorder spam; undo only latest state change; undo is an activity |
@@ -798,7 +805,7 @@ From `multitenancy.md`: same title in org A and B, search/list only A; A fetches
 | 20 dates | `iterations.ends_on`; Icebox “Not scheduled”; no plan-overriding picker |
 | 21 charts | Completed bars only; empty states; V line “initial 10” while N=0 |
 | 22 search | Operators as specified; Done excluded unless `includedone:` |
-| 23 agents | Same board verbs with Bearer. Member Grove can accept; Viewer token is read-only. Attribution is the agent name. |
+| 23 API tokens / webhooks | Mint org token with per-project grants. Bearer start/finish/deliver/accept as Member. Viewer grant `forbidden` on mutations. Member cannot mint Owner. Token without a grant on project B → 404. Webhooks are outbound project hooks. |
 | 24 My Work / saved search | Owner/requester rules as specified |
 | 25 workspaces | One organisation; not a permission boundary |
 | 26 CSV | Owner only (assumption); create-only, all-or-nothing |
@@ -824,9 +831,9 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 
 **Types and API**
 
-- Go: wrap with `fmt.Errorf("%w")`. Structured Zap fields: `component`, `operation`, `organisation_id`, `project_id`, `actor_id`. Never log passwords, raw session/magic/agent/webhook secrets, or Authorization headers.
+- Go: wrap with `fmt.Errorf("%w")`. Structured Zap fields: `component`, `operation`, `organisation_id`, `project_id`, `actor_id`. Never log passwords, raw session/magic/token/webhook secrets, or Authorization headers.
 - Frontend: TypeScript strict; oxlint; `tsc --noEmit`. Types for board/story match the API.
-- One error envelope. The codes are the codes (shared; humans and agents).
+- One error envelope. The codes are the codes (shared; session or Bearer).
 
 **Migrations**
 
@@ -844,9 +851,9 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 
 **Feature flags and compatibility**
 
-- No flags to hide Icebox, velocity, or accept-by-any-Member (including agents).
+- No flags to hide Icebox, velocity, or accept-by-any-Member.
 - Greenfield compatibility: old overview is wrong; do not keep `rejected` as a terminal peer to “match” it.
-- Human SPA and agents share machines and rank rules.
+- Cookie session and Bearer share machines and rank rules.
 
 **Authz checklist (every mutating handler)**
 
@@ -874,19 +881,17 @@ These are not new product rules. Product remains unspecified where marked.
 | Icebox vs one rank | Assumed two lists (fork 4) | `rank_list` + unique `(project_id, rank_list, rank)` |
 | Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
 | Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
-| HTTP prefix | Existing README | **`/api/v1`** mount; same bodies and errors for agents; no second `/v1` tree |
-| Create-story `story_type` | Flag if `product-spec.md` still splits humans vs agents | One API; omitted `story_type` may default to Feature (UI also posts Feature) |
-| Create-story `requester_id` | Product: requester is a human Member/Owner, never an agent | Shared rule: `requester_id` required and a human Member / Owner (same for every actor) |
+| HTTP prefix | Existing README | **`/api/v1`** mount; same bodies and errors for session and Bearer; no second `/v1` tree |
+| Create-story `story_type` | Shared contract | One API; omitted `story_type` may default to Feature (UI also posts Feature) |
+| Create-story `requester_id` | Product: requester is a Member/Owner | `requester_id` is the authenticated user (session or Bearer) and must be a Member / Owner |
 | Create-story `panel` | Product: default add is Icebox | Omitted `panel` → `icebox` for every actor |
-| Token mint ACL | Product: Owner or Member for projects they can write; no scope picker | **Assumption:** minting body assigns `owner` \| `member` \| `viewer` on listed projects via `project_memberships`. A Member cannot assign `owner` (that would escalate). Owner (or organisation owner) may assign any of the three. Member may revoke agents they created; Owner may revoke any agent on that project. |
-| Agent undo | Product-spec: Owner, Member on latest state change | Same as a human Member/Owner. Not “own last change only”. |
+| Token mint path + role-cap | Agreed with Product Owner | `POST /api/v1/organisations/:organisation_id/tokens` with `api_token_grants` (per-project role ≤ minter). Default `user_id` is the minter. Member cannot assign `owner`. Viewer cannot mint. Owner lists all tokens on those projects; Member lists/revokes tokens they created. |
+| Undo | Product-spec: Owner, Member on latest state change | Same for session or Bearer. Not “own last change only”. |
 | Human session mechanism | Unspecified | Server-side cookie sessions |
 | Live transport | Unspecified | SSE + in-process bus, slice 17 |
 | Attachment / email vendors | Unspecified | Storage and email interfaces; local dir + SMTP/outbox |
 | Rate-limit numbers | “TL picks” | 60 mutations / minute / Bearer token, burst 10; 600 reads / minute / token; 120 / minute / human session |
 | Webhook HMAC scheme | “TL specifies” | `t=<unix>,v1=<hmac-sha256>` |
-| Agent user email | Unspecified | `agent-<uuid>@invalid`, `actor_kind=agent` |
-| Agent authz | Locked by product law | Project membership of the token’s actor. No scope list. No agent-only error codes. |
 | Magic/verify link TTL | Unspecified | 30 minutes |
 | Password hash | Unspecified | bcrypt, cost 12, nullable column |
 | Iteration start weekday storage | Implied Monday | ISO `1` = Monday on `projects.iteration_start_weekday` |
@@ -902,7 +907,6 @@ If Dan answers a fork, update this file in the same PR as the code change. Do no
 - `product-spec.md` (the slice you are in, plus machines)
 - `velocity-and-planning.md` if the slice touches the plan (3, 4, 7, 8, 18, 20, 21, 30)
 - `multitenancy.md` if the slice touches authz (0, 1, 23, 25)
-- `agent-api.md` if the slice touches agent tokens, attribution, or outbound webhooks (23). Transition verbs and error codes are the shared API.
 - `open-questions.md` assumptions
 - `000001_create_core_schema.up.sql`
 - repo `AGENTS.md`, `api/internal/migrations/AGENTS.md`

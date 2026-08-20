@@ -13,9 +13,8 @@ Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How e
 3. **[product-spec.md](./product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
 4. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model. If a slice disagrees with it, this file wins until Dan changes it.
 5. **[multitenancy.md](./multitenancy.md)** — accounts, organisations, projects, roles, isolation.
-6. **[agent-api.md](./agent-api.md)** — same API as the frontend; cookie vs bearer; role = Owner / Member / Viewer.
-7. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
-8. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
+6. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
+7. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
 
 Then, in the delivery workflow (do not skip):
 
@@ -25,11 +24,11 @@ Then, in the delivery workflow (do not skip):
 - **Developer** implements one slice at a time.
 - **QA** tests each slice from its acceptance criteria alone.
 
-Companion docs own planning, tenancy, and the agent API. Slices must still be independently demoable.
+Companion docs own planning and tenancy. Slices must still be independently demoable.
 
 ## Executive summary
 
-Flower is a Pivotal-Tracker-like tracker for small product teams and the agents that work beside them.
+Flower is a Pivotal-Tracker-like tracker for small product teams, including the scripts and CI that call the same API the app uses.
 
 There is one ordered list. Position is priority. Icebox is the **unscheduled holding pen**, not a stage you pass through on the way to Done. Backlog is future iterations of the same list. Current is this iteration: in-progress work, velocity-filled unstarted stories, and stories accepted *this* iteration. Done is accepted work from **completed** iterations only. Accepted stories stay in Current until rollover at midnight in the project timezone.
 
@@ -43,7 +42,7 @@ Humans estimate Features (0 is valid). A Feature cannot be started without an es
 
 Any **Member** or Owner can accept. The requester *should*. My Work surfaces their Delivered stories. There is no accept ACL lock in MVP. History is undo. Viewers are read-only.
 
-Agents authenticate as named actors with a bearer token bound to a project membership. They use the same API as humans. The token does not add scopes beyond Owner / Member / Viewer.
+The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **API token**. A token is minted for a user/membership with a role at or below the minter (Member cannot mint Owner). Owner / Member / Viewer is the whole model. There is no agent product and no `/agents` endpoint.
 
 ## Product principles
 
@@ -56,7 +55,7 @@ Steal the power of classic Pivotal Tracker. Refuse Jira, Monday, and late-era is
 5. **Accept is a team verb.** Any Member may accept. Requester should. History undoes a mistake.
 6. **The board is the meeting.** Icebox / Backlog / Current / Done plus the open story.
 7. **Keyboard is first-class.** Daily actions have a chord. The UI Designer owns the table.
-8. **Agents are actors, not integrations.** Same machines, attributed as the agent.
+8. **One API.** Cookie or Bearer; same handlers; Owner / Member / Viewer. No agent product.
 9. **Say no.** No Gantt, no custom fields, no workflow engine, no resource management.
 10. **Smallest valuable slice.** Thin, end-to-end, user-visible. Not “API first.”
 
@@ -88,10 +87,9 @@ Architecture lives in `technical-approach.md` after the Reviewer clears this set
 | --- | --- |
 | [README.md](./README.md) | How to read, summary, principles, constraints |
 | [tracker-brief.md](./tracker-brief.md) | Copy-exactly vs modernise |
-| [product-spec.md](./product-spec.md) | Problem, personas, slices, AC, agents |
+| [product-spec.md](./product-spec.md) | Problem, personas, slices, AC |
 | [velocity-and-planning.md](./velocity-and-planning.md) | Iteration math, packing, releases, charts, examples |
 | [multitenancy.md](./multitenancy.md) | Organisations, roles, isolation, workspaces |
-| [agent-api.md](./agent-api.md) | Same API / same roles; cookie vs bearer; webhooks for any client |
 | [open-questions.md](./open-questions.md) | True forks + baked assumptions |
 | [LANDING.md](./LANDING.md) | Eventual repo paths; overview.md correction |
 

@@ -21,7 +21,7 @@ Account (human login)
   └── Membership in one or more Organisations
         └── Project
               └── Project membership (owner | member | viewer)
-        └── Agent (named actor with a token)
+        └── API token (credential for a user/membership; not a tenant)
         └── Workspace (Phase 3; a view, not a tenant)
 ```
 
@@ -55,7 +55,7 @@ Exactly one role per membership:
 
 | Role | Meaning |
 | --- | --- |
-| **owner** | Full project control. Invite, change roles, settings (iteration clock, scales, toggles), delete stories, create agent tokens, export/import (Phase 3). Can accept / reject. |
+| **owner** | Full project control. Invite, change roles, settings (iteration clock, scales, toggles), delete stories, mint API tokens, export/import (Phase 3). Can accept / reject. |
 | **member** | Build. Create/edit/estimate/reorder/icebox, all legal verbs including **accept and reject**, tasks, labels, comments, attachments, tokens for projects they can write, saved searches, My Work. Cannot invite. Cannot change roles. Cannot change iteration / scale settings. Cannot import/export. |
 | **viewer** | Read. Board, stories, activity, charts, search, Icebox, images. Nothing that mutates. Cannot accept. |
 
@@ -71,15 +71,15 @@ A person may be `viewer` on project A and `member` on project B in the same orga
 ### Requester vs project owner vs story owner
 
 - **Organisation owner** / **project owner**: tenancy roles.
-- **Requester**: default creator. Human Member or Owner. Never an agent. *Should* accept; is not the only person who can.
-- **Story owner**: up to **5** Members, Owners, or agents doing the work. Start assigns the clicker.
+- **Requester**: default creator. Member or Owner. *Should* accept; is not the only person who can.
+- **Story owner**: up to **5** Members or Owners doing the work. Start assigns the clicker.
 
 ## Isolation rules
 
 1. **Tenant key is organisation.** Every story, comment, file, token, webhook, iteration, search, and membership is reachable only through an organisation the caller belongs to.
 2. **No cross-organisation read.** Session for org A must not receive org B’s stories by id, search, webhook, or export. Cross-tenant id → **404**.
-3. **No cross-organisation write.** The project’s organisation must match the session or token scope.
-4. **Tokens do not span organisations.** Minted in one organisation. A second organisation needs a new token.
+3. **No cross-organisation write.** The project’s organisation must match the session or token (the token is a credential, not an agent scope).
+4. **Tokens do not span organisations.** An API token is a credential minted in one organisation. A second organisation needs a new token.
 5. **Workspaces do not span organisations.**
 6. **Attachments are not public without auth.** Guessed file URL serves nothing to the wrong tenant or a signed-out client. Viewers of **that** project can see the image.
 7. **Invites are project-scoped.** Accepting joins that project (and lists the organisation) without access to other projects.
@@ -100,7 +100,7 @@ They **cannot**:
 - Tasks, blockers, labels (they can filter), owners, requester, follow
 - Comment, edit description, upload or delete attachments
 - Invite, revoke, change roles, settings
-- Create or revoke agent tokens, register webhooks
+- Create or revoke API tokens, register webhooks
 - Export or import
 - Create or delete epics (they can view and filter)
 - Change point scale or planning mode
@@ -126,7 +126,7 @@ Fail QA if a viewer can `POST` a story via the API.
 - Create a project (organisation owner only, MVP)
 - Mint a token for a project they do not belong to as member/owner
 
-They **can** accept, reject, restart, undo, and create agent tokens for projects they can write. Tokens are agents, not impersonations. See [agent-api.md](./agent-api.md).
+They **can** accept, reject, restart, undo, and mint API tokens for projects they can write. A token is a credential for a user/membership (role at or below the minter; Member cannot mint Owner). Same `/api/v1` handlers as a session cookie.
 
 ## Workspaces (Phase 3)
 
@@ -169,12 +169,12 @@ Removing someone from their last project in the organisation removes the organis
 | Velocity strategy (1–4), initial velocity | Project owner | Project |
 | Point scale, bugs-and-chores points, auto-plan Current | Project owner | Project (later slices) |
 | Members and invites | Project owner | Project |
-| Agent tokens | Project owner or member (their grants) | Organisation + listed projects |
+| API tokens | Project owner or member (role at or below their own) | Organisation + listed projects |
 | Webhooks | Member or owner | Project |
 
 No per-project custom roles. No per-field permissions.
 
-## Isolation tests (ride with slice 0, 1, and the agent slice)
+## Isolation tests (ride with slice 0, 1, and the API-token slice)
 
 - Same story title in org A and org B. Session A search returns only A.
 - Session A fetches story id from B → 404.

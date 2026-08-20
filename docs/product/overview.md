@@ -43,7 +43,7 @@ A marker, not work. Auto-started when created or dragged into Backlog. Finish â†
 
 Roles are Owner, Member, Viewer. **Any Member or Owner can accept.** The requester *should*. Viewers are read-only. There is no accept ACL in MVP. History undoes a mistake.
 
-Agents authenticate as named actors with a bearer token bound to a project membership, and use the same API as humans. Permissions are the membership role (Owner / Member / Viewer). A Member agent can accept and reject.
+The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **API token** minted for a user/membership (role at or below the minter; Member cannot mint Owner). Permissions are Owner / Member / Viewer. There is no agent product.
 
 ## What the core schema covers
 
@@ -69,5 +69,4 @@ Business rules (allowed state transitions, who can accept a story, how ranking w
 - [Technical approach](../core-workflow/technical-approach.md)
 - [Velocity and planning](../velocity-planning/velocity-and-planning.md)
 - [Multitenancy](../multitenancy/multitenancy.md)
-- [Agent API](../agent-api/agent-api.md)
 - [Open questions](open-questions.md)

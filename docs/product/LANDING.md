@@ -30,7 +30,6 @@ Optional, same PR if the line is still wrong: root `README.md` sentence “Stori
 | `product-spec.md` | `docs/core-workflow/product-spec.md` | Whole-product slices + AC. |
 | `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model. |
 | `multitenancy.md` | `docs/multitenancy/multitenancy.md` | Organisations, roles, isolation. |
-| `agent-api.md` | `docs/agent-api/agent-api.md` | Agent contract. |
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |
 | — | `docs/product/overview.md` | **Update in place** (correction above). |
@@ -51,14 +50,14 @@ Already in `000001_create_core_schema`:
 
 `users`, `projects`, `project_memberships`, `iterations`, `stories`, `labels`, `story_labels`, `activities`.
 
-Not present: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, agent tokens, webhooks.
+Not present: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
 
 Technical Lead adds tables for slices that need them. They do not redesign the eight. Notable existing choices to keep:
 
 - `stories.rank VARCHAR(64)` — fractional / lexicographic rank. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500, not a tighter invented limit.
 - `story_type` and `state` are strings, not DB enums.
-- `activities.actor_id` → `users`. Agents will need a `users` row or a later actor model; do not invent it here.
+- `activities.actor_id` → `users`. An API token authenticates as a user; do not invent a second actor model here.
 - `projects` has `point_scale` and `iteration_length_weeks`. No organisation_id, no timezone, no velocity strategy, no bugs-and-chores-estimable flag yet.
 
 ## Ports (locked)
@@ -68,3 +67,13 @@ API `8180`, frontend `4273`, Postgres `5433` / test `5437`. Prophet owns 8080 / 
 ## Spelling
 
 UK / AU / NZ in docs and in new identifiers: `organisations`, not `organizations`.
+
+## Repo landing (for later push)
+
+`agent-api.md` is **deleted** from this spec set. There is no agent contract.
+
+When these drafts land in the repo:
+
+- Delete `docs/agent-api/agent-api.md` from the repo (do not add a replacement).
+- Remove links to it from `docs/README.md` and `docs/product/spec-set.md`.
+- Do not create `docs/agent-api/`.

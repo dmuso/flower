@@ -23,7 +23,6 @@ Planning, product, and technical reference for Flower.
 - [Technical approach](core-workflow/technical-approach.md)
 - [Velocity and planning](velocity-planning/velocity-and-planning.md)
 - [Multitenancy](multitenancy/multitenancy.md)
-- [Agent API](agent-api/agent-api.md)
 
 ### Reference
 
