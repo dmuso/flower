@@ -124,13 +124,15 @@ They are four views of planning, not four stages of a card. A story does not “
 | Column | What it is | What it is not |
 | --- | --- | --- |
 | **Icebox** | `unscheduled` holding pen. Own order. No iteration headers. No points / velocity. | Not step 1 of a pipeline. Not in the plan. |
-| **Backlog** | Future iterations of the **ranked** list. Iteration headers appear once stories exist. | Not “ready”. Not a todo column. |
-| **Current** | This iteration: in-flight + velocity-filled unstarted + accepted *this* iteration. Bloom highlight on the header. | Not “in progress only”. Not Done. |
-| **Done** | Accepted work from **completed** iterations, newest iteration first. | Not a drop target. Not where Accept sends a story. |
+| **Backlog** | Later **computed bands** of the ranked list (velocity + estimates, live). Date-band headers once stories exist. | Not “ready”. Not a todo column. Not stored iterations. |
+| **Current** | This band: in-flight + velocity-filled unstarted + accepted *in this window*. Bloom highlight on the header. | Not “in progress only”. Not Done. Not “iteration 3”. |
+| **Done** | Accepted work that has **aged past the current window**. Flat list, newest accepted first. | Not a drop target. Not where Accept sends a story. Not grouped by iteration row. |
 
-Current header (from the velocity doc): **points / V**, `ends_on`, **over-velocity** badge when Feature-points > V.
+Current header: **points / V**, computed `Ends {date}`, **over-velocity** badge when Feature-points > V.
 
-Current column header uses Bloom as the current-iteration highlight (guide). The other three headers stay ink-700 uppercase. That is how you know which iteration is live without memorising the UI.
+Current column header uses Bloom as the live-window highlight (guide). The other three headers stay ink-700 uppercase. That is how you know which band is live without memorising the UI.
+
+There is **no stored iteration list**. The only setting is **iteration length in days** (default 7). Bands recompute live. You never assign a story to “iteration 3”.
 
 
 ---
@@ -163,8 +165,8 @@ Left → right:
 4. **Label chips** (meta, Inter 500). Epic label is Bloom-bordered — see slice 19. Ordinary labels are ink on paper-border pills. Do not invent a rainbow.
 5. **Blocked** badge if any open blocker (`octagon-alert` + `Blocked`).
 6. **Tasks** `done/total` once slice 9 exists.
-7. **Owner initials** (up to 5). If the actor used an API token, initials are still the **user the token belongs to**.
-8. **Projected date** (slice 20): iteration `ends_on`, or `Not scheduled` in Icebox. Quiet meta. Not a field.
+7. **Owner initials** (up to 5). If they used an API token, initials are still the **user the token belongs to**.
+8. **Projected date** (slice 20): computed band end date, or `Not scheduled` in Icebox. Quiet meta. Not a field.
 9. **StateButton** — the one next verb for this type + state. Primary (Bloom) or Stem when the verb is Accept-as-Finish on a Chore/Release. Always visible. Not hover-only.
 
 Selected: Bloom ring. Open (`StorySheet`): same card, expanded in the column (Tracker). Slice 29 can pin the sheet in a second pane.
@@ -185,7 +187,7 @@ The button label **is** the verb. Not “Update status”.
 | `finished` | Current | **Deliver** | — |
 | `delivered` | Current | **Accept** (Primary / Bloom) | **Reject** (Destructive, not hidden) |
 | `rejected` | Current | **Restart** | Reason stays visible as meta. Not a delete. |
-| `accepted` | Current until rollover, then Done | None | Accepted meta in Stem. No drag back to Backlog. |
+| `accepted` | Current until it ages past the current window, then Done | None | Accepted meta in Stem. No drag back to Backlog. |
 
 Start on a Feature with no estimate: button disabled, `title` / accessible name: `Needs an estimate first`. Clicking or `S` does not change state; see slice 4 error copy.
 
@@ -206,7 +208,7 @@ Bug: same machine. No estimate required. No EstimateChip unless Phase 3 toggle.
 | --- | --- | --- |
 | `unscheduled` | **Pull to Backlog** | Pull auto-starts the marker. |
 | `started` | **Finish** | Finish **is** accept. Optional **Target date** on the open sheet. |
-| `accepted` | None | Colour: none if no target; Delivered blue `#3A6EA5` if iteration `starts_on` ≤ target; Rejected `#B42318` if `starts_on` > target. |
+| `accepted` | None | Colour: none if no target; Delivered blue `#3A6EA5` if the **computed band start** ≤ target; Rejected `#B42318` if the band start > target. |
 
 Place the marker at the **end** of that milestone’s stories (work above, marker below). Open-sheet hint: `Sit this at the end of the stories it ships.`
 
@@ -220,7 +222,7 @@ Place the marker at the **end** of that milestone’s stories (work above, marke
 | Reorder inside the ranked list | Priority. Unstarted **cannot** sit above started / finished / delivered / rejected. Illegal drop snaps back. |
 | Backlog → Current | **Rejected** while auto-plan is on. Does not Start. Snap back. **Slice 30 only (manual Current):** this drag is legal. `C` on a focused unstarted Backlog story does the same. Icebox → Current stays illegal. |
 | Icebox → Current | **Rejected.** Does not Start. Use **Start** (after estimate on a Feature). |
-| Anything → Done | **Rejected.** Done is rollover only. |
+| Anything → Done | **Rejected.** Done is aged-out accepted work only. |
 | Accepted-this-iteration → Backlog | **Rejected.** |
 | `started` / `finished` / `delivered` / `rejected` / `accepted` → Icebox | **Rejected.** |
 
@@ -228,12 +230,14 @@ Copy for the snap-back lives in slice 7.
 
 Keyboard reorder is first-class (Tab, Space, arrows, Space). See §7.
 
-### Iteration chrome
+### Band chrome (computed, not stored)
 
-- **Current `ColumnHeader` extra line** (Inter 500, not uppercase): `{points} / {V}` · `Ends {ends_on}` · badge `Over velocity` when points > V. New project: `0 / 10` (or the Owner’s initial velocity), never a fake `0` velocity unless they set initial to 0.
-- **Backlog:** future iteration subheaders: `Ends {ends_on}` · packed points / V. Empty board: no fake headers (slice 0).
-- **Done:** `Ended {ends_on}` groups, newest first.
-- **Icebox:** title + count only. Never an iteration header. Never a date.
+- **Current `ColumnHeader` extra line** (Inter 500, not uppercase): `{points} / {V}` · `Ends {computed end}` · badge `Over velocity` when points > V. New project: `0 / 10` (or the Owner’s initial velocity), never a fake `0` velocity unless they set initial to 0.
+- **Backlog:** future **band** subheaders: `Ends {computed end}` · packed points / V. Empty board: no fake headers (slice 0). No “Iteration 3”.
+- **Done:** **no** iteration groups. Flat accepted list that has aged past the current window, newest accepted first.
+- **Icebox:** title + count only. Never a band header. Never a date.
+
+The current window is the length-in-days band that contains now (default 7 days). Start of the first band is computed from project created; later bands follow every L days. Changing length replans immediately.
 
 No Recalculate button. The board after a mutation is already right.
 
@@ -316,23 +320,23 @@ Flower fills what it can. The human types what only a human knows.
 | Owners | Start assigns the clicker | Add / remove others, max 5 |
 | Follow | Requester + owners, cannot unfollow | Others may follow |
 | Estimate | Unestimated. `0` is a value only if they pick it | 0 / 1 / 2 / 3 on a Feature before Start |
-| Iteration / projected date | Planner assigns from velocity + rank | Never a due-date picker |
+| Band / projected date | Planner assigns from velocity + rank + length in days. Live. | Never a due-date picker. Never “iteration 3”. |
 | Current membership | Auto-plan up to V, leave short | Start (may overflow). No drag-to-Current |
 | Velocity | Initial 10, then rolling average | Owner may set initial V and strategy 1–4 in settings |
-| Iteration length | 1 week, Monday start | Owner may set 1–4 weeks / weekday / TZ |
+| Iteration length | **Days** (default 7) | Owner may set length in days. Not a stored list. |
 | Timezone | Store; default `Australia/Melbourne` until the fork is resolved | Owner setting, not a signup field |
 | Icebox vs Backlog on create | Icebox | Pull to Backlog, or add-in-Backlog as a quieter column action |
 | New Icebox position | Top (most recently captured) | Reorder if they care |
 | New scheduled position | Bottom of the ranked list | Reorder if they care |
-| Accept actor | Any Member or Owner — no ACL picker | — |
+| Who accepts | Any Member or Owner — no ACL picker | — |
 | Reject reason | — | Required |
 | Blocker | — | Free text; optional **story** picker (not a URL) |
 | Linked-blocker resolve | Auto when the linked story is accepted or deleted | — |
 | Mentions (slice 12b) | Resolve `@` against project Members/Owners/Viewers | The `@name` |
 | Images | Clipboard paste → attachment + embed | File picker as quieter option |
-| Activity | Actor, time, from → to | — |
+| Activity | User, time, from → to | — |
 | Reorders in activity | Do not log | — |
-| API token | Same API and defaults as the frontend. Bound to a project role. | Name, role, projects |
+| API token | Same API and defaults as the frontend. Minted on the **user** (`/users/:id/tokens`). Bound to a project role. | Name, role, projects |
 | Token secret | Show once | They copy it now |
 | Search operators | Parse Tracker-like language | The query |
 | Saved search name | — | A name |
@@ -500,21 +504,21 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 **NameProject**
 
 - One next action: **Create project**.
-- Field: `Project name`. Infer slug, iteration 1 week, V = 10, Linear 0/1/2/3, TZ default.
+- Field: `Project name`. Infer slug, iteration length 7 days, V = 10, Linear 0/1/2/3, TZ default.
 - Empty: `Name the first project.`
 - Error (blank): `Name the project.`
 - Success: `Board`.
 
 **Empty Board**
 
-Four `BoardColumn`s. Current header may show iteration dates and `0 / 10`. No fake stories. No fake Backlog iteration headers.
+Four `BoardColumn`s. Current header may show the computed band end and `0 / 10`. No fake stories. No fake Backlog band headers.
 
 | Column | Empty copy | One next action |
 | --- | --- | --- |
 | Icebox | `Nothing waiting. Capture a story.` | `Add a story` (also `A`) |
 | Backlog | `Nothing ranked yet. Pull from Icebox when you’re ready.` | Quieter: none until Icebox has a row. Do not put a second Add here as Primary. |
-| Current | `Nothing in this iteration yet. Pull a story from Icebox or create one.` | Same as velocity doc. Velocity `10` is visible in the header. |
-| Done | `Nothing in Done yet. Accepted work lands here after the iteration ends.` | — look at Current |
+| Current | `Nothing in this window yet. Pull a story from Icebox or create one.` | Same as velocity doc. Velocity `10` is visible in the header. |
+| Done | `Nothing in Done yet. Accepted work lands here after it ages out of this window.` | — look at Current |
 
 Secondary on the board: Invite (slice 1, Owners), project switcher, `?`.
 
@@ -557,7 +561,7 @@ Reload stays in this organisation / project.
 **Screen:** `Board` + `StoryComposer` at the **top** of Icebox.
 
 - One next action: **Add** (or `Enter` in the title).
-- Field: Title only. Infer type Feature, state `unscheduled`, requester = me, no estimate, no iteration.
+- Field: Title only. Infer type Feature, state `unscheduled`, requester = me, no estimate, no band.
 - Secondary: `Cancel` (`Esc`) discards an empty composer. Type switch is absent until slice 18.
 - Confirm: none.
 
@@ -616,7 +620,7 @@ Icebox with rows: composer is a quiet `Add a story` at the top, not a modal.
 
 ### Slice 5 — Finish, Deliver, Accept
 
-**Screen:** Current `StoryRow`. Accepted stays in **Current**. Done stays empty until rollover.
+**Screen:** Current `StoryRow`. Accepted stays in **Current**. Done stays empty until that work ages past the current window.
 
 | Now | One next action | Secondary |
 | --- | --- | --- |
@@ -636,7 +640,7 @@ Incomplete tasks / blockers (later slices): accept anyway; toast `Accepted, with
 | --- | --- | --- |
 | Illegal verb (Finish on unstarted, Accept on finished) | `That move isn’t available yet.` | The legal StateButton |
 | Success Accept | `Accepted.` Story remains in Current, Stem meta. | Next delivered, or keep working |
-| Done still empty | Correct until midnight rollover | — |
+| Done still empty | Correct until the accept ages past this window | — |
 
 ---
 
@@ -675,9 +679,9 @@ Incomplete tasks / blockers (later slices): accept anyway; toast `Accepted, with
 | --- | --- |
 | Unstarted above started / finished / delivered / rejected | `Unstarted stories stay below work that’s already started.` |
 | Backlog or Icebox → Current | `Start the story to bring it into Current. Dragging doesn’t start it.` |
-| Accepted-this-iteration → Backlog | `Accepted work stays in Current until the iteration ends.` |
+| Accepted-this-iteration → Backlog | `Accepted work stays in Current until it ages out of this window.` |
 | In-flight / accepted → Icebox | `Only unstarted stories can go to Icebox.` |
-| Anything → Done | `Done fills when the iteration ends. You can’t drag here.` |
+| Anything → Done | `Done is aged-out accepted work. You can’t drag here.` |
 
 Success: the row sits where they put it. Auto-plan may move **other** unstarted rows between Current and Backlog. That is live replan, not a fight with their drop.
 
@@ -690,10 +694,10 @@ Icebox reorder is independent.
 **Screen:** same `Board`. No new verb. This is the Tracker moment.
 
 - One next action on a new project with estimated Features in the ranked list: **read Current** (already filled, left **short** of V) or **Start** a Backlog story (may overflow).
-- Secondary: iteration length in project settings (Owner): 1–4 weeks. Changing length replans. No Recalculate.
-- Current header: `6 / 10` · `Ends 9 Aug` (example). Over: `11 / 10` + badge `Over velocity`.
-- Accepted this iteration: still in Current.
-- After rollover: those accepted rows are in Done under `Ended {date}`. V becomes accepted Feature points (then rolling last 3, setting 1–4).
+- Secondary: iteration **length in days** in project settings (Owner). Default 7. Changing length replans live. No Recalculate. No iteration objects.
+- Current header: `6 / 10` · `Ends 9 Aug` (computed). Over: `11 / 10` + badge `Over velocity`.
+- Accepted in this window: still in Current.
+- When accepted work ages past the current window: those rows sit in Done as a **flat list** (no `Ended {date}` groups). V updates from accepted Feature points (rolling last 3 windows, setting 1–4).
 
 | State | Copy | Next |
 | --- | --- | --- |
@@ -702,7 +706,7 @@ Icebox reorder is independent.
 | Over (because Start) | Badge `Over velocity` | Finish the work; do not kick rows out |
 | New project V | Header uses **10**, never a fake 0 | — |
 
-Rollover is midnight, project TZ. No “close the iteration” button.
+The window boundary is midnight, project TZ. No “close the iteration” button. No stored iteration to close.
 
 
 ---
@@ -850,7 +854,7 @@ Allowed: h1–h3, bold, italic, strikethrough, lists, fenced code, inline code, 
 **Screen:** `ActivityList` on `StorySheet`.
 
 - One next action when the latest event is state-changing: **Undo**.
-- Secondary: read the list (created, estimated, scheduled/iceboxed, started, finished, delivered, accepted, rejected + reason, restarted, requester/owners/title, blocker, attachment, comment, label). Actor, time, from → to.
+- Secondary: read the list (created, estimated, scheduled/iceboxed, started, finished, delivered, accepted, rejected + reason, restarted, requester/owners/title, blocker, attachment, comment, label). User, time, from → to.
 - Reorders do not appear.
 - Undo restores previous state. Undo is itself an activity.
 - Cannot undo a comment with this control.
@@ -941,12 +945,12 @@ Tracker epics are purple. The guide has no purple. **Do not invent a purple hex.
 
 - One next action: none to type — **reorder or estimate** if the date is wrong. The planner moves.
 - Icebox: `Not scheduled.`
-- Release date = `ends_on` of the iteration that **contains the marker**. Target date is the only date they type. It does not move stories.
+- Release date = computed **band end** that contains the marker. Target date is the only date they type. It does not move stories.
 - Live on reorder / estimate / accept / V change.
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Scheduled | `{ends_on}` in project TZ | — |
+| Scheduled | computed band end in project TZ | — |
 | Icebox | `Not scheduled.` | Pull to Backlog |
 | Late release | Marker uses `#B42318` | Reorder work above it, or live with red |
 
@@ -957,12 +961,12 @@ Tracker epics are purple. The guide has no purple. **Do not invent a purple hex.
 **Screen:** `Charts` (settings or a quiet AppBar link). Viewers can see.
 
 - One next action: **read**, then back to the board (`Esc` / `Back to the board`).
-- Velocity: bar per **completed** iteration; line at V. While N = 0, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
-- Burn-up: cumulative accepted Feature points vs scoped Feature points (rollover snapshots + live now).
+- Velocity: bar per **completed window** (computed, not a stored iteration); line at V. While N = 0, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
+- Burn-up: cumulative accepted Feature points vs scoped Feature points (window snapshots + live now).
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty velocity | `No completed iterations yet.` | `Back to the board` |
+| Empty velocity | `No completed windows yet.` | `Back to the board` |
 | Empty burn-up | `No scope yet.` | Add estimated Features |
 | Success | Real bars only | — |
 
@@ -992,25 +996,24 @@ Reveal (Tracker steal): a quieter control to scroll the story into its column. Y
 
 ### Slice 23 — API token
 
-Generic API tokens. Same API as the frontend. Same Owner / Member / Viewer permissions. A Member token can accept. No special token type. No scope checklist.
+Generic API tokens, minted on the **user** (`/users/:id/tokens`). Same API as the frontend. Same Owner / Member / Viewer permissions. A Member token can accept. No special token type. No scope checklist. Not an org or project settings screen.
 
-**Screen:** `TokenForm` in project settings (`p-6`). Owner or Member.
+**Screen:** `TokenForm` on the **account** (user settings). Each user manages their own tokens.
 
 - One next action: **Create token**.
-- Fields: Name, **Role** (`member` default; Owner can also pick `owner` / `viewer`), projects in this organisation they can write. The token is that role.
+- Fields: Name, **Role** (`member` default; you can pick a role at or below your own on the selected projects), projects you belong to. The token is that role on those projects.
 - You may mint a role at or below your own. A Member cannot mint an Owner token.
 - After create: secret once. One next action: **Copy secret**.
-- Secondary: **Revoke** (confirm). Viewer: no access.
+- Secondary: **Revoke** (confirm).
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty | `A named token with a project role. Same permissions as a person in that role.` | Name + role + `Create token` |
+| Empty | `A named token with a project role. Same permissions as you in that role.` | Name + role + `Create token` |
 | Secret shown | `Copy this now. We won’t show it again.` | `Copy secret` |
 | Copied | `Copied. Store it with the token.` | Done |
 | Revoke | `Revoke this token? It will stop working now.` | `Revoke` |
-| Viewer | Page absent | — |
 
-Activity **actor** is the user the token belongs to. Token name may appear in the summary as `via {token name}`. Not a distinct identity.
+Activity **user** is the person the token belongs to. Token name may appear in the summary as `via {token name}`. Not a distinct identity. Always say **user**, never actor.
 
 ---
 
@@ -1153,8 +1156,8 @@ Default before they split: four columns in one pane (the MVP board).
 | | Owner | Member | Viewer |
 | --- | --- | --- | --- |
 | Add / estimate / verbs including Accept & Reject | Yes | Yes | No |
-| Invite, roles, iteration / scale / auto-plan / TZ | Yes | No | No |
-| API tokens | Yes (any role) | Yes (Member or Viewer, projects they can write) | No |
+| Invite, roles, iteration length (days) / scale / auto-plan / TZ | Yes | No | No |
+| API tokens (own account) | Yes | Yes | Yes (own tokens; Viewer role on the token still cannot mutate) |
 | My Work | Yes | Yes | No |
 | Search, charts, read board | Yes | Yes | Yes |
 | CSV export/import | Yes | No (assumption) | No |
@@ -1178,6 +1181,8 @@ The requester is not a special ACL. Copy may say `You requested this` on My Work
 **Tab selects stories (Tracker) vs native Tab.** On the board, Tab is story focus so a morning works one-handed. In any dialog or field, Tab is native. Contrast and focus ring are mandatory so this is learnable.
 
 **Accept is team-wide, requester should.** The UI does not nag Luis off the Accept button (no Typeform “are you the requester?”). My Work puts Maya’s Delivered at her fingertips. Undo fixes a polite mistake.
+
+**Computed bands vs a stored iteration list.** Dan: there is no iteration object. Length is a number of days. Current / Backlog headers are live bands from velocity + estimates. Done is a flat aged-out list, not rows grouped by “iteration 3”. If `velocity-and-planning.md` still describes an `iterations` table or 1–4 weeks, this file wins until that doc is updated.
 
 **Optimistic verbs vs “wait is a bug”.** The row updates before the server. Failure copy snaps back. Do not put a spinner on Start.
 
@@ -1232,7 +1237,7 @@ A reviewer can fail a build from this list without a meeting.
 - Empty Icebox / Backlog / Current / Done use the slice 0 sentences.
 - `StoryRow` shows Type icon, EstimateChip (Feature), title, StateButton. StateButton is not hover-only and not inside More.
 - Unestimated Feature: Start refused with `Estimate this feature before you start it. 0 is fine.`
-- Accept stays in Current. Done empty until rollover.
+- Accept stays in Current. Done empty until that work ages past the current window. No Done-by-iteration groups.
 - Reject requires reason; Restart returns to started in Current.
 - Drag unstarted above started snaps back with the slice 7 sentence.
 - Drag into Current or Done snaps back. Start is the overflow valve.
@@ -1241,7 +1246,7 @@ A reviewer can fail a build from this list without a meeting.
 - Viewer never sees a mutating Primary.
 - Confirm on Reject / Delete / Revoke; not on Accept / Start.
 - Contrast: ink on paper, white on Bloom, ink on Pollen chips. Focus ring visible.
-- Copy uses Icebox, Current, velocity, points, story, epic, iteration.
+- Copy uses Icebox, Current, velocity, points, story, epic. No “iteration 3”. Length is in days.
 
 ---
 

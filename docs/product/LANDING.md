@@ -15,6 +15,8 @@ The updated overview must say, in short form:
 - `rejected` is not a terminal peer of `accepted`. Reject, then Restart, returns the story to `started` in Current.
 - Any Member can accept. Requester should. Viewers cannot.
 - Velocity = accepted Feature points. Initial velocity 10. Auto-plan leaves Current short rather than overfill.
+- Windows are **computed** (length in days). Flower does not persist Tracker-style iteration records as the plan.
+- Tokens are **user-scoped** (`/api/v1/users/:id/tokens`).
 - Point the reader at the feature folders below for the exhaustive rules.
 
 Do not blindly overwrite overview with this whole spec. Keep overview as the one-page intent; make it **correct**.
@@ -28,7 +30,8 @@ Optional, same PR if the line is still wrong: root `README.md` sentence “Stori
 | `README.md` (this spec set) | `docs/product/spec-set.md` | How to read the set. Do not replace root `README.md`. |
 | `tracker-brief.md` | `docs/product/tracker-brief.md` | Copy-exactly vs modernise. |
 | `product-spec.md` | `docs/core-workflow/product-spec.md` | Whole-product slices + AC. |
-| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model. |
+| `domain-model.md` | `docs/core-workflow/domain-model.md` | Domain map. Technical Lead owns the tree. |
+| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model (`pack` as a pure function). |
 | `multitenancy.md` | `docs/multitenancy/multitenancy.md` | Organisations, roles, isolation. |
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |
@@ -50,6 +53,8 @@ Already in `000001_create_core_schema`:
 
 `users`, `projects`, `project_memberships`, `iterations`, `stories`, `labels`, `story_labels`, `activities`.
 
+`iterations` and `stories.iteration_id` are leftover. Product does not persist iteration records as the plan. Do not treat 000001 as the planning model.
+
 Not present: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
 
 Technical Lead adds tables for slices that need them. They do not redesign the eight. Notable existing choices to keep:
@@ -57,12 +62,12 @@ Technical Lead adds tables for slices that need them. They do not redesign the e
 - `stories.rank VARCHAR(64)` — fractional / lexicographic rank. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500, not a tighter invented limit.
 - `story_type` and `state` are strings, not DB enums.
-- `activities.actor_id` → `users`. An API token authenticates as a user; do not invent a second actor model here.
-- `projects` has `point_scale` and `iteration_length_weeks`. No organisation_id, no timezone, no velocity strategy, no bugs-and-chores-estimable flag yet.
+- `activities` attributes each change to a `users` row (000001 column name is leftover). Product language is **user**. An API token authenticates as that user.
+- `projects` has `point_scale` and a leftover weeks-named length column. Product length is **days** (default 7). No organisation_id, no timezone, no velocity strategy, no bugs-and-chores-estimable flag yet.
 
 ## Ports (locked)
 
-API `8180`, frontend `4273`, Postgres `5433` / test `5437`. Prophet owns 8080 / 4173. Do not collide.
+API `8180`, frontend `4273`, Postgres `5433` / test `5437`.
 
 ## Spelling
 
@@ -70,10 +75,7 @@ UK / AU / NZ in docs and in new identifiers: `organisations`, not `organizations
 
 ## Repo landing (for later push)
 
-`agent-api.md` is **deleted** from this spec set. There is no agent contract.
-
 When these drafts land in the repo:
 
-- Delete `docs/agent-api/agent-api.md` from the repo (do not add a replacement).
-- Remove links to it from `docs/README.md` and `docs/product/spec-set.md`.
-- Do not create `docs/agent-api/`.
+- Index `docs/core-workflow/domain-model.md` from `docs/README.md` and `docs/product/spec-set.md`.
+- Do not add an org-level token mint path.

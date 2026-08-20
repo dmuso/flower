@@ -12,18 +12,23 @@ This is the Technical Lead approach for implementers. It does not replace the pr
 
 | Topic | Wins |
 | --- | --- |
-| Packing, velocity, rollover, releases, dates | `velocity-and-planning.md` |
-| Auth, API tokens, attribution | this file + `product-spec.md` roles (Owner / Member / Viewer) |
+| Packing **math** (leave-short, never-split, oversized Feature, zero-cost, Start overflow, window clock) | `velocity-and-planning.md` |
+| No `iterations` table / no `stories.iteration_id` as planning truth | this file + `domain-model.md` + Dan’s law (velocity doc now agrees) |
+| Auth, user API tokens, who may mint | this file + `product-spec.md` roles (Owner / Member / Viewer) |
 | Organisations, roles, isolation | `multitenancy.md` |
 | Slice order and acceptance criteria | `product-spec.md` |
 | Copy-exactly vs modernise | `tracker-brief.md` |
 | True forks + baked assumptions | `open-questions.md` |
-| Existing eight tables, rank type, string states | `000001_create_core_schema.up.sql` |
+| Directory shape | `STRUCTURE-FROM-LAYOUT.md` (Flower names) + this file |
+| Domain boundaries | `domain-model.md` |
+| Existing 000001 columns | `000001_create_core_schema.up.sql` is ground: do not rewrite it. Stop using leftover planning columns. |
 | Quality bar, no fallbacks, TDD, 90% | repo `AGENTS.md` + `api/internal/migrations/AGENTS.md` |
 
-If a slice, mock, or this file disagrees with the velocity doc on packing, the velocity doc wins. Cookie sessions and Bearer API tokens call the same `/api/v1` as the frontend. Project role (Owner / Member / Viewer) wins on what they can do. If something is unspecified, it is marked **unspecified** below; an implementation assumption is listed only where a column or locked stack forces a choice.
+Cookie sessions and Bearer API tokens call the same `/api/v1` as the frontend. Project role (Owner / Member / Viewer) wins on what they can do. If something is unspecified, it is marked **unspecified** below; an implementation assumption is listed only where a column or locked stack forces a choice.
 
 Do not implement until the Reviewer has cleared the spec set. Do not open a PR from this document. Do not overwrite `docs/reference/*` or `docs/migrations*`. Same-PR product correction of `docs/product/overview.md` is owned by LANDING, not by this file.
+
+Spelling: UK / AU / NZ (`organisations`). Always **user**, never “actor.”
 
 ---
 
@@ -41,93 +46,116 @@ Do not change these.
 | Local Postgres | **5433** (dev), **5437** (test) |
 | Shape | Monorepo, Nix Shell + Docker Compose + Make |
 | Look | `docs/reference/frontend-design-guide.md` (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board) |
-| Prophet | Owns 8080 / 4173 — do not bind those |
+| Host ports already taken | Do **not** bind **8080** or **4173** |
 
 Existing process commands stay: `nix-shell --run 'make dev'`, `make test`, `make lint`, `make migrate`. `.env.example` remains the source of truth for required variables.
 
 ### Where slices live
 
-The API already documents a domain-driven layout (`domain/`, `platform/`, `app/`, `handlers/`). Keep it. Map work by vertical slice, not by “build all tables then all handlers.”
+House pattern: `STRUCTURE-FROM-LAYOUT.md`. Domain-driven **vertical slices**. A domain is handler + service + repository + types. Handler *bodies* live in the owning domain. `app/` is process wiring and lifecycle (`Start`, `Shutdown`), not one use-case package per outcome. There is **no** `api/internal/wire/` package. Wiring lives in `app/` and `handlers/` (`handlers/wire.go` is a file, not a layer).
 
 ```
 flower/
 ├── api/
 │   ├── cmd/                  # process: HTTP, migrate, boot backfills
 │   └── internal/
-│       ├── domain/           # machines, planner, rank, tenancy rules (no HTTP)
-│       ├── platform/         # postgres, clock, email, bus, object store
-│       ├── app/              # use-cases: one package per outcome
-│       ├── handlers/         # Gin, /api/v1/*
-│       └── migrations/       # schema-only; 000001 is ground
+│       ├── domain/           # vertical slices: handler + service + repository + types
+│       ├── platform/         # db, clock, auth middleware, email, bus, object store
+│       ├── ports/            # cross-domain interfaces only
+│       ├── app/              # lifecycle + wiring (Start / Shutdown), not use-case packages
+│       ├── handlers/         # route registration for /api/v1/*
+│       ├── types/            # minimal shared types (claims)
+│       └── migrations/       # schema-only; 000001 is ground; then stop using leftover tables
 ├── frontend/src/
-│   ├── features/auth/
-│   ├── features/board/       # Icebox / Backlog / Current / Done
-│   ├── features/story/
-│   └── lib/api.ts            # one client; cookie or bearer
-└── docs/                     # this spec set lands per LANDING.md
+│   ├── pages/                # route screens
+│   ├── components/           # shared chrome
+│   ├── features/<slice>/     # thick slices: domain / state / effects / components
+│   ├── lib/api/<resource>.ts # one module per HTTP resource; not one api.ts
+│   └── routes/
+└── docs/
 ```
 
-Phase 0 use-case packages (add as the slice lands, not all on day one):
+Dependency direction: `domain/` → `ports/` ← `platform/`. Domains do not import each other. SQL lives only in the owning domain’s repository files. Platform never contains story, planning, or tenancy rules.
 
-| Slice | `api/internal/app/` | `frontend/src/features/` |
+Typical domain package (add when the first slice needs it — do not pre-create empty packages):
+
+```
+api/internal/domain/<name>/
+├── types.go
+├── service.go
+├── repository.go      # interface + postgres impl (this is not ports/)
+├── handler.go         # HTTP lives here
+└── *_test.go
+```
+
+Phase 0 domains (same names as `domain-model.md`):
+
+| Slice need | `api/internal/domain/` | Frontend |
 | --- | --- | --- |
-| 0 | `auth`, `organisation`, `project`, `board` (empty) | `auth`, `board` (empty columns) |
-| 1 | `invite` | project members / invite |
-| 2–3 | `story` (create, schedule, icebox) | Icebox + pull |
-| 4–6 | `story` (estimate, transition) | estimate + verbs |
-| 7 | `rank` | reorder |
-| 8 | `planning` | iteration headers, V, Done after rollover |
+| Auth / identity / API tokens | `user` | `pages/` login; `lib/api/auth.ts`, `lib/api/users.ts` |
+| Organisations | `organisation` | `lib/api/organisations.ts` |
+| Projects + membership + invite | `project` | `lib/api/projects.ts`; invite on project page |
+| Board read model | `board` | `features/board/`; `lib/api/board.ts` |
+| Stories + machine + rank | `story` (`story/machine`, `story/rank`) | `features/story/`; `lib/api/stories.ts` |
+| Planning / velocity | `planning` | `features/planning/` (render only) |
+| Effective role | inside `organisation` + `project` | — |
 
-Shared domain (written with the first slice that needs it, tested in isolation):
+**Membership and invite sit with project** (project-scoped). Organisation membership sits with organisation. API tokens sit with `user` (credential of a user, not an identity type).
 
-- `domain/story/machine` — type-specific verbs. Feature machine is used in Phase 0. Bug / Chore / Release tables are coded in the **same** package when the Feature machine lands (product: machines are specified now so later slices do not invent a second workflow). UI and create-story only expose Feature until slice 18.
-- `domain/story/rank` — fractional `VARCHAR(64)` generate / compare / illegal-rank check.
-- `domain/planning` — velocity formula + pack algorithm. Velocity doc is normative.
-- `domain/tenancy` — organisation scope, effective role, 404-vs-403.
+`app/` and `handlers/` register the new domain’s routes on `/api/v1`. They do not grow a use-case package per slice.
 
-Frontend does **not** recompute velocity or panel membership. It renders what the board payload says. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
+Frontend: `lib/api/core.ts` owns `request`, auth header, errors. Each resource is its own module. Thick slices (`board`, `story`, `planning`) use `features/<name>/{domain,state,effects,components}`. The SPA **does not recompute** velocity or panel membership.
+
+UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
 
 ### HTTP mount
 
 Existing repo README exposes `/health`, `/ready`, `/api/version`, and **`/api/v1/*`** on 8180.
 
-**Decision:** one mount, `/api/v1`. Cookie sessions and Bearer API tokens (`Authorization: Bearer flr_...`) call the same resource paths. Example: `POST /api/v1/stories/:id/transitions`. Do not run a second `/v1` tree. Cookie vs Bearer is the only auth difference. Owner / Member / Viewer is the whole permission model.
+**Decision:** one mount, `/api/v1`. Cookie sessions and Bearer API tokens (`Authorization: Bearer flr_...`) call the same resource paths. Example: `POST /api/v1/stories/:id/transitions` with `{ "action": ... }`. Do not run a second tree. Cookie vs Bearer is the only auth difference. Owner / Member / Viewer is the whole permission model. There is no scope list on the token.
 
 SPA origin is `:4273`, API is `:8180` (cross-origin, same-site on localhost). CORS: explicit `FRONTEND_ORIGIN` (never `*`), credentials allowed. Production: put both behind one origin and drop credentialed CORS if possible.
 
 ### What must not be disturbed
 
-- The eight core tables’ meaning: `users`, `projects`, `project_memberships`, `iterations`, `stories`, `labels`, `story_labels`, `activities`.
+- `000001` itself: do not rewrite or rename its columns in Phase 0. Additive migrations and Go boot backfills only.
 - `stories.rank VARCHAR(64)` fractional / lexicographic. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500.
 - `story_type` and `state` as strings. No DB enums, checks-as-enums, triggers, or functions.
-- `activities.actor_id → users`. An API token belongs to a `users` row (`api_tokens.user_id`). `actor_id` is that user. Do not make `actor_id` polymorphic in Phase 0.
-- `projects.point_scale`, `projects.iteration_length_weeks` — already present; add columns, do not rename.
-- Unique `(project_id, user_id)` on memberships; unique `(project_id, number)` on iterations.
-- `docs/reference/*`, existing `000001`, Prophet ports, locked look.
+- `docs/reference/*`, locked look, host ports 8180 / 4273 / 5433 / 5437.
 - UK / AU / NZ identifiers: `organisations`, not `organizations`.
+- Unique `(project_id, user_id)` on memberships.
 
-New slices **add** tables and columns. They do not redesign the eight.
+Leftover 000001 (stop using / migrate away — **not** the model):
+
+| Leftover | Treat as |
+| --- | --- |
+| `iterations` table | Unused. Do not insert. Do not read for the plan. Drop in a later schema migration after Go no longer references it. |
+| `stories.iteration_id` | Unused. Do not write as planning truth. Do not read to decide Current / Backlog / Done. |
+| `projects.iteration_length_weeks` | Unused after backfill. Add `iteration_length_days`; boot backfill `days = weeks * 7`; then read days only. Drop weeks later. |
+| `activities.actor_id` | Leftover **column name**. It maps to the user (`users.id`). Do not add an actor type. Prose says user. Prefer `user_id` in new tables and logs. |
+
+New slices **add** tables and columns. They do not redesign 000001. They do stop treating leftover planning columns as the model.
 
 ---
 
 ## Systems design
 
-### Ground schema (000001) — keep
+### Ground schema (000001) — keep the file, not leftover planning
 
-Exact columns that later slices must treat as given:
+Exact columns that later slices must treat as given (do not rewrite 000001):
 
-- `users`: `id`, `username` UNIQUE NOT NULL, `email` UNIQUE NOT NULL, `password_hash` (NOT NULL today — see slice 0 change), `display_name` NOT NULL, timestamps as `TIMESTAMP` (not `TIMESTAMPTZ`).
-- `projects`: `id`, `name`, `slug` (UNIQUE globally today — see slice 0 change), `description`, `point_scale`, `iteration_length_weeks`.
-- `project_memberships`: `role VARCHAR(50)` — product values `owner` \| `member` \| `viewer` only, enforced in Go.
-- `iterations`: `number`, `starts_on DATE`, `ends_on DATE`.
-- `stories`: `iteration_id` nullable SET NULL, `requester_id` RESTRICT, `estimate INTEGER` nullable, `rank VARCHAR(64)`, `accepted_at` nullable, unique `(project_id, rank)` today.
+- `users`: `id`, `username` UNIQUE NOT NULL, `email` UNIQUE NOT NULL, `password_hash` (NOT NULL today — see slice 0), `display_name` NOT NULL, timestamps as `TIMESTAMP` (not `TIMESTAMPTZ`).
+- `projects`: `id`, `name`, `slug` (UNIQUE globally today — see slice 0), `description`, `point_scale`, `iteration_length_weeks` (leftover; see days).
+- `project_memberships`: `role VARCHAR(50)` — product values `owner` | `member` | `viewer` only, enforced in Go.
+- `iterations`: leftover table (`number`, `starts_on`, `ends_on`). Not a domain. Not planning truth.
+- `stories`: `iteration_id` leftover nullable, `requester_id` RESTRICT, `estimate INTEGER` nullable, `rank VARCHAR(64)`, `accepted_at` nullable, unique `(project_id, rank)` today (becomes `(project_id, rank_list, rank)`).
 - `labels.name VARCHAR(100)`, unique `(project_id, name)`.
-- `activities`: `kind`, `summary`, `actor_id` RESTRICT, `story_id` nullable SET NULL.
+- `activities`: `kind`, `summary`, leftover `actor_id` RESTRICT (maps to the user), `story_id` nullable SET NULL.
 
 `NULL` estimate = unestimated. `0` is an estimate. Do not store `-1`. Search `estimate:-1` (slice 22) means `estimate IS NULL`.
 
-Existing timestamps are `TIMESTAMP`. **Do not** rewrite 000001 columns to `TIMESTAMPTZ` as a drive-by. Store UTC in `TIMESTAMP`. Convert with the project timezone for display and rollover. New tables follow the same convention until a dedicated later migration (not Phase 0) says otherwise.
+Existing timestamps are `TIMESTAMP`. **Do not** rewrite 000001 columns to `TIMESTAMPTZ` as a drive-by. Store UTC in `TIMESTAMP`. Convert with the project timezone for display and window end. New tables follow the same convention until a dedicated later migration (not Phase 0) says otherwise.
 
 ### Tenancy (organisations)
 
@@ -143,20 +171,23 @@ organisations
 
 organisation_memberships
   id UUID PK
-  organisation_id → organisations CASCADE
-  user_id → users CASCADE
+  organisation_id -> organisations CASCADE
+  user_id -> users CASCADE
   role VARCHAR(50) NOT NULL          -- Go: 'owner' only in MVP
   UNIQUE (organisation_id, user_id)
 ```
 
 **Add to `projects` (do not rewrite the table):**
 
-- `organisation_id UUID NOT NULL` → `organisations` RESTRICT (or CASCADE if product later allows org delete — **unspecified**; use RESTRICT so an organisation with projects cannot disappear).
+- `organisation_id UUID NOT NULL` -> `organisations` RESTRICT (**unspecified** whether org delete is allowed later; RESTRICT so an organisation with projects cannot disappear).
 - Drop `idx_projects_slug`. Create `UNIQUE (organisation_id, slug)`.
 - `timezone VARCHAR(64) NOT NULL` — velocity doc: store it; default `Australia/Melbourne` until the fork is resolved.
-- `velocity_strategy INTEGER NOT NULL` default 3 (allowed 1–4, Go).
+- `velocity_strategy INTEGER NOT NULL` default 3 (allowed 1-4, Go).
 - `initial_velocity INTEGER NOT NULL` default 10.
-- `iteration_start_weekday INTEGER NOT NULL` default 1 (ISO 1 = Monday). Product: default start weekday Monday.
+- `iteration_start_weekday INTEGER NOT NULL` default 1 (ISO 1 = Monday).
+- `iteration_length_days INTEGER NOT NULL` — the only stored window-length setting. Default **7**. Owner may set any **positive integer** (velocity doc; typical 7, 14, 21, 28). Do not keep a weeks setting in the model.
+
+Boot backfill (Go, not a 000001 rewrite): for existing rows, `iteration_length_days = iteration_length_weeks * 7`. After backfill, **stop reading** `iteration_length_weeks`. Drop that leftover column in a later schema-only migration.
 
 **Slug / URL (open question 2 — unspecified product):** API and SPA routes use UUIDs: `/api/v1/organisations/:organisation_id/projects/:project_id`. No public organisation slug in Phase 0. `projects.slug` stays as the existing column, unique **per organisation**, generated from the project name plus a short suffix on collision. Do not invent a new slug scheme.
 
@@ -168,17 +199,16 @@ organisation_memberships
 ```
 sessions
   id UUID PK
-  user_id → users CASCADE
+  user_id -> users CASCADE
   token_hash VARCHAR(64) NOT NULL UNIQUE   -- SHA-256 hex of cookie secret
   expires_at TIMESTAMP NOT NULL
-  last_project_id UUID NULL → projects SET NULL
+  last_project_id UUID NULL -> projects SET NULL
 ```
 
 Cookie: `flower_session`, HttpOnly, SameSite=Lax, Path=/, Secure in production. Hash the raw token; never store it.
 
 - `users.email_verified_at TIMESTAMP NULL`. Password signup cannot create an organisation until this is set. A magic-link hit on a new email **is** verification.
 - `users.password_hash` becomes **nullable** (schema-only). Magic-link-only accounts have `NULL`. Password login on `NULL` is `unauthorized` with a message to use the magic link — that is a real branch, not a fallback hash.
-- `users.last_project_id` optional; session `last_project_id` is enough for “land on my last project” if updated on board load.
 
 Session login is for users with passwords or magic links. An API token is not a login identity and does not create a session.
 
@@ -186,7 +216,7 @@ Session login is for users with passwords or magic links. An API token is not a 
 
 **Display name (unspecified product):** column is `NOT NULL`. Set it to the username at create. Do not invent a profile editor in Phase 0.
 
-**Auth tokens (verify + magic + invite accept):**
+**Auth tokens (verify + magic; not API tokens):**
 
 ```
 auth_tokens
@@ -198,268 +228,91 @@ auth_tokens
   consumed_at TIMESTAMP NULL
 ```
 
-Single-use. Hash only. Expiry: magic link and verify **unspecified** in product; implementation: 30 minutes for magic/verify. Invite expiry is specified: 14 days (own table).
+Single-use. Hash only. Expiry: magic link and verify **unspecified** in product; implementation: 30 minutes. Invite expiry is specified: 14 days (own table).
 
-**Invites (slice 1):**
+**Invites (slice 1) — project domain:**
 
 ```
 project_invites
   id UUID PK
-  project_id → projects CASCADE
-  organisation_id → organisations RESTRICT
+  project_id -> projects CASCADE
+  organisation_id -> organisations RESTRICT
   email VARCHAR(255) NOT NULL
   role VARCHAR(50) NOT NULL          -- owner | member | viewer
   token_hash VARCHAR(64) NOT NULL UNIQUE
-  invited_by_user_id → users RESTRICT
+  invited_by_user_id -> users RESTRICT
   expires_at TIMESTAMP NOT NULL      -- now + 14 days
   accepted_at TIMESTAMP NULL
   revoked_at TIMESTAMP NULL
   created_at TIMESTAMP NOT NULL
 ```
 
-Resend: revoke (or consume) the old row, insert a new hash. Email already a member: `validation_failed`, no second membership (unique `(project_id, user_id)` already exists). Accepting joins **that** project only and lists the organisation. Members and Viewers cannot invite.
+Resend: revoke (or consume) the old row, insert a new hash. Email already a member: `validation_failed`, no second membership. Accepting joins **that** project only and lists the organisation. Members and Viewers cannot invite.
 
 **Effective role (one function, used by every handler):**
 
-1. If the account is an organisation owner of `project.organisation_id` → treat as project `owner` even with no `project_memberships` row.
+1. If the account is an organisation owner of `project.organisation_id` -> treat as project `owner` even with no `project_memberships` row.
 2. Else the `project_memberships.role` for `(project_id, user_id)`.
-3. Else: if the project’s organisation is not one they belong to → **404** on id fetch. If they belong to the org but not the project → **404** (enumeration: project lists only return projects they can open).
-4. Same-tenant, known project, insufficient role on a mutation → `forbidden` (403). Viewers can GET the board; `POST /stories` is `forbidden`, not 404.
+3. Else: if the project’s organisation is not one they belong to -> **404** on id fetch. If they belong to the org but not the project -> **404** (enumeration: project lists only return projects they can open).
+4. Same-tenant, known project, insufficient role on a mutation -> `forbidden` (403). Viewers can GET the board; `POST /stories` is `forbidden`, not 404.
 
-A Bearer token authenticates as `api_tokens.user_id`. Then this same function, except the effective role on **that project only** is the token’s assigned `role` (already capped at the minter’s effective role when minted). Token used on any other project → `not_found` (404), same as cross-tenant. Do not check a scope list.
+A Bearer token authenticates as `api_tokens.user_id`. Then this **same** function on that user, except if the token has grant rows the effective role on **that project only** is the grant role (already capped at the minter’s role when minted). Token used on a project the user cannot open (and has no grant) -> `not_found` (404). Do not check a scope list.
 
-Cross-tenant id (story, project, attachment, token) → **404** / `not_found`. Never 403 for “exists in another organisation.”
+Cross-tenant id (story, project, attachment, token) -> **404** / `not_found`. Never 403 for “exists in another organisation.”
 
-Organisation owner can do anything a project owner can. Any **Member or Owner** can accept / reject Features (cookie session or Bearer). Viewers cannot. Cookie vs Bearer is the only auth difference. Insufficient role → `forbidden`. Do not add an accept ACL or extra error codes. Do not check a scope list.
+Organisation owner can do anything a project owner can. Any **Member or Owner** can accept / reject Features (cookie session or Bearer). Viewers cannot. Cookie vs Bearer is the only auth difference. Insufficient role -> `forbidden`.
 
-**Email:** product does not name a vendor. `platform/email` is an interface. Production: SMTP from env. Dev/test: a real **outbox** table written in the same transaction as the token row; a worker or test helper sends/reads it. Tests assert outbox rows. Do not “succeed” without a stored token. Do not log raw links at info level in production (debug in test env only).
+**Email:** product does not name a vendor. `ports` email interface (implemented in `platform`). Production: SMTP from env. Dev/test: a real **outbox** table written in the same transaction as the token row; a worker or test helper sends/reads it. Tests assert outbox rows. Do not “succeed” without a stored token. Do not log raw links at info level in production (debug in test env only).
 
-### State machines
+### User API tokens
 
-Business rules live in Go. No DB enum, trigger, or function.
-
-One table-driven package: `domain/story/machine`. Input: type, from-state, action, **effective role**, estimate — not a scope list. Output: to-state or a coded error (`invalid_transition`, `unestimated`, `forbidden`, `validation_failed`).
-
-One machine. `product-spec.md` wins on verbs. Who = Owner / Member; Viewers forbidden. Project role decides who may call a verb; the token does not carry a scope list. Machines live in this domain package and in product-spec only.
-
-**Feature / Bug**
-
-| action | from | to | Who |
-| --- | --- | --- | --- |
-| schedule | unscheduled | unstarted | Owner, Member |
-| icebox | unstarted only | unscheduled | Owner, Member |
-| start | unstarted | started | Member or Owner; Feature must be estimated (`0` allowed) |
-| start | unscheduled (Icebox) | started | Owner, Member; this verb is schedule+start. Story lands started in Current (may overflow velocity). Feature must already be estimated (`0` allowed). |
-| finish | started | finished | Owner, Member |
-| deliver | finished | delivered | Owner, Member |
-| accept | delivered | accepted | Owner, Member |
-| reject | delivered | rejected | Owner, Member; non-empty reason |
-| restart | rejected | started | Owner, Member |
-| undo | last state-changing activity | previous | Owner, Member (same rules). Viewer cannot. |
-
-Viewers cannot call any of the above. Insufficient role → `forbidden`.
-
-**Chore:** unscheduled → unstarted → started → accepted. `finish` is the verb; result is `accepted`. No delivered / reject. Member or Owner may finish.
-
-**Release:** unscheduled in Icebox; created in Backlog or scheduled → auto-`started`. `finish` → `accepted`. No estimate.
-
-`PATCH` must not write `state`. There is no `unstart` verb. Icebox is `icebox`. Undo is `undo` (slice 15). Product-spec undo is the latest state-changing activity for any Owner/Member — not “own last change only”, and not blocked because a human accepted.
-
-**Start Feature** without estimate → `unestimated`, no mutation. `0` is allowed. Start assigns the clicker as a story owner if owners < 5; if already 5 and clicker is not among them, Start still happens and they are **not** added (product). Auto-follow the clicker (requester and owners cannot unfollow — slice 4 AC requires follow to exist).
-
-**Reject reason (Phase 0):** product calls it a comment; the comments table is slice 13. Phase 0 stores the reason on `activities` (`kind = story.rejected`, `summary` = reason) and returns it on the story payload as `reject_reason` from the latest reject activity. Empty reason → `validation_failed`, no state change. Do not invent a comments table in Phase 0. Slice 13 may also write a comment; **unspecified** whether both exist — do not do both until specified.
-
-**Optimistic concurrency:** add `stories.revision INTEGER NOT NULL` default 1, incremented on every story mutation (fields, rank, state, estimate). Clients send `revision` or `If-Match`. Stale → `conflict`. Last-write-wins on the board is unacceptable for rank/state; the SPA sends `revision` as well.
-
-**`started_at`:** add `stories.started_at TIMESTAMP NULL`. Set on the **first** successful `start` only. Reject / restart do not clear it (cycle-time assumption, slice 27). Do not reset the clock.
-
-**Undo (slice 15, design now):** undo applies only to the latest **state-changing** activity on that story. Reorders do not write activity. Undo itself writes an activity. Implement in the machine as `action=undo` with the previous state from that activity row (store `from_state` / `to_state` in `summary` as structured text or add nullable `activities.payload JSONB` — JSONB is schema, not a function; acceptable). Prefer additive `from_state` / `to_state` VARCHAR columns on `activities` when slice 15 lands rather than parsing `summary`.
-
-Illegal verbs do not change state.
-
-### Velocity recompute
-
-Normative algorithm: `velocity-and-planning.md`. Do not invent a third planner. Do not show a Recalculate button.
-
-**Add to `iterations` (slice 8, not a redesign):**
-
-- `accepted_feature_points INTEGER NULL` — frozen at rollover. Required because deleted Features that were in a completed total stay in that total.
-- `completed_at TIMESTAMP NULL` — set at rollover; Current is the iteration with `completed_at IS NULL` and `starts_on <= today <= ends_on` in project TZ.
-
-**Velocity (MVP), in Go, integer:**
+Token belongs to a user. Bearer authenticates as that user. Not org-level. Not a second identity. Each user manages their own (account settings).
 
 ```
-N = count(completed iterations)
-K = project.velocity_strategy   # 1–4, default 3
-if N == 0:
-    V = project.initial_velocity    # default 10
-else:
-    window = last min(K, N) completed, by number desc
-    if every window row has accepted_feature_points == 0:
-        V = project.initial_velocity    # Tracker all-zero revert
-    else:
-        V = floor(mean(accepted_feature_points of window))
+POST   /api/v1/users/:id/tokens
+GET    /api/v1/users/:id/tokens
+DELETE /api/v1/users/:id/tokens/:token_id
 ```
 
-Accepted Feature points only. Estimate at **accept** time is what is recorded into the running total; after rollover the frozen integer is the source. Edits after accept do not rewrite a completed iteration. Bugs / chores / releases add 0 until the Phase 3 toggle (do not add the toggle column in Phase 0). Team strength % is not MVP — do not hide a 100% factor.
-
-**Panel membership** is a function of state + `iteration_id` + current window, not a panel enum:
-
-| Panel | Rule |
-| --- | --- |
-| Icebox | `state = unscheduled`. Own order (`rank_list = icebox`). `iteration_id` NULL. |
-| Current | In-flight (`started`/`finished`/`delivered`/`rejected`) **or** `accepted` with `accepted_at` inside the current window **or** `unstarted` (and packed Releases) with `iteration_id = current`. |
-| Backlog | Ranked-list stories whose `iteration_id` is a future iteration. |
-| Done | `accepted` and `iteration_id` (or `accepted_at` window) is a **completed** iteration. Newest completed iteration first. |
-
-Accepted-this-iteration stays in Current until rollover. Done is empty until the first rollover.
-
-**Planner** (`domain/planning.Pack`) is a pure function: `(now, project, V, ranked stories, iterations) → iteration assignments`. It does **not** change `rank`. It writes `stories.iteration_id` and creates missing future `iterations` rows (number, starts_on, ends_on). First iteration: Monday on or before project-created date in project TZ (or the configured start weekday), length = `iteration_length_weeks`, `ends_on` = last calendar day of the box.
-
-Call Pack **inside the same transaction** as any mutation that the velocity doc lists: create, delete, icebox, schedule, reorder, estimate, type change, start and other verbs, accept, reject, restart, undo, rollover, V / length / TZ / strategy / initial-velocity / (later) toggles. After commit, publish the bus event.
-
-Start on a Backlog or Icebox story jumps it to the ranked list + Current and **may** overflow V. Drag Backlog → Current is **not** Start (slice 7). Auto-plan membership is not drop-to-start.
-
-Leave-short, never-split, oversized-Feature exception, zero-cost packing: copy the velocity doc. Do not rephrase a different fit rule.
-
-**Rollover** at midnight at `ends_on + 1 day 00:00` project TZ:
-
-1. Freeze `accepted_feature_points` for that iteration (sum of Feature estimates accepted in the window).
-2. Set `completed_at`.
-3. Recompute V.
-4. Those accepted stories are now Done (they already have `accepted_at` / `iteration_id`; the board query flips them because the iteration is completed).
-5. In-flight stay; leftover unstarted are re-packed. Unaccepted work is not failed and not iceboxed.
-
-Implementation: (a) a process ticker every 30s that selects projects whose current iteration is due, and (b) the same function at the start of every board read/write. Guard with `WHERE completed_at IS NULL` so two paths cannot double-freeze. Inject `platform.Clock` for tests.
-
-**Test clock:** QA must advance past midnight. Production builds do not expose a clock endpoint. Test / `APP_ENV=test` (test compose, Postgres 5437) may expose `POST /api/v1/test/clock` (`{"now": "ISO-8601"}`) compiled behind a build tag or env that **production refuses to start with**. That is a test harness, not a fallback.
-
-Changing length / timezone / start weekday replans immediately. Completed iterations keep historical `starts_on` / `ends_on` and frozen points.
-
-`GET /api/v1/projects/:id/board` returns panels, current V, `initial` vs calculated, points/V, `ends_on`, over-velocity badge if Current Feature-points > V. Frontend does not pack.
-
-### Ranking
-
-Ground: `stories.rank VARCHAR(64)`, unique per project today.
-
-Icebox is its own ordered list (assumption; open question 5). Unique `(project_id, rank)` cannot hold two independent sequences without collisions (both lists would generate `"n"`).
-
-**Add (slice 2), do not change the type of `rank`:**
-
-- `stories.rank_list VARCHAR(16) NOT NULL` — Go values `icebox` \| `ranked`.
-- Drop `UNIQUE (project_id, rank)`.
-- `UNIQUE (project_id, rank_list, rank)`.
-
-Icebox order is independent. New Icebox story goes to the **top** of Icebox (rank before current first, or a start-rank if empty). Schedule (slice 3) moves `unscheduled` → `unstarted`, `rank_list` `icebox` → `ranked`, rank = **bottom** of the ranked list (after current last). Icebox of `unstarted` only: reverse. Cannot icebox started / finished / delivered / rejected / accepted.
-
-**Algorithm:** lexicographic midpoint on charset `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`. Generate between `before` and `after`; empty list → a mid string (e.g. `U`). If the midpoint would exceed 64 characters, **rebalance** that `(project_id, rank_list)` in the same transaction (rewrite ranks evenly). Rebalance is an implementation event, not an activity.
-
-**Illegal rank (server, not only UI):** unstarted cannot sit above started / finished / delivered / rejected in the **ranked** list. Reject the write, `illegal_rank`, row snaps back. Accepted-this-iteration do not return to Backlog by drag. Viewers cannot reorder.
-
-API (Member or Owner, session or Bearer):
-
-```
-POST /api/v1/projects/:project_id/stories/reorder
-{ "story_id": "...", "before_id": "..." | "after_id": "...", "revision": 3 }
-```
-
-The shared API requires explicit neighbours. Do not default to “top.” Unique-violation or stale revision → `conflict`. Retry once server-side on unique violation after re-read; then fail.
-
-Reorders do **not** write `activities` (slice 15).
-
-### Real-time (slice 17)
-
-Product: two sessions, same project, mutations appear within **2 seconds** without refresh; focus and comment drafts survive unless that story/comment was deleted; no presence / live cursors; dropped socket shows stale + reconnect; refresh heals; viewers get the same reads.
-
-**Decision:** SSE, not WebSockets (presence is out of scope). Not polling as the primary path (easy to miss the 2s bar under load).
-
-```
-GET /api/v1/projects/:project_id/events
-Accept: text/event-stream
-```
-
-Authenticated session or Bearer; effective role ≥ viewer. After each committed mutation, `platform/bus` publishes `{project_id, event, story_id, revision}`. The handler fans out to subscribers of that project.
-
-MVP bus: **in-process**. Document single-API-replica for live updates. Interface it (`Subscribe(projectID)`) so a Redis/NATS adapter can land later without changing handlers. Do not add Redis in Phase 0.
-
-Event names align with webhook events where they overlap (`story.created`, `story.updated`, `story.reordered`, `story.started`, …). Payload is enough to patch or to trigger a targeted GET. Do not replace the board with a full refetch on every keystroke if that blows away a comment draft — patch by `story_id`, preserve local draft state.
-
-Client: `EventSource` (or fetch-stream) with cookie. On error: banner “stale”, reconnect with backoff. Manual refresh heals.
-
-Slice 17 is Phase 1. Phase 0 may ship without SSE; the board remains correct on reload. When slice 17 starts, publish from the same post-commit hook used for webhooks so we do not grow a second event list.
-
-### Attachments (slice 14)
-
-Product: `png`, `jpg`, `jpeg`, `gif`, `webp`, ≤ 10 MB, max 20 per story; clipboard paste; no remote hotlink render; delete → missing-image on embeds; viewers see, cannot upload; guessed URL serves nothing to the wrong tenant or a signed-out client.
-
-```
-attachments
-  id UUID PK
-  organisation_id → organisations RESTRICT
-  project_id → projects CASCADE
-  story_id → stories CASCADE
-  uploaded_by_user_id → users RESTRICT
-  content_type VARCHAR(100) NOT NULL
-  byte_size INTEGER NOT NULL
-  storage_key VARCHAR(512) NOT NULL
-  created_at TIMESTAMP NOT NULL
-```
-
-Serve only via authenticated `GET /api/v1/attachments/:id` (effective role ≥ viewer on that project). Check organisation **and** project before streaming. Do not put objects on a public bucket URL. Do not render `http(s):` images that are not this attachment id.
-
-**Storage (unspecified vendor):** `platform/storage` interface (`Put`, `Get`, `Delete`). Dev: local directory under a data path, keys `{organisation_id}/{project_id}/{story_id}/{attachment_id}`. Production: S3-compatible (env: bucket, region, endpoint). Same interface, no “if S3 fails write to /tmp” fallback.
-
-Validate type by sniffed bytes, not only extension. Over 10 MB or 21st image → `validation_failed`.
-
-### API tokens and webhooks (slice 23)
-
-A generic **API token** (Bearer `flr_...`) authenticates as a user. Humans can also use a session cookie. Same `/api/v1` handlers. What the caller can do is Owner / Member / Viewer. The token does not add scopes.
-
-Activity `actor_id` → the user the token was minted for. Optional token `name` may appear as an activity label.
+`POST /api/v1/users/:id/tokens/:token_id/revoke` may be the same revoke handler as `DELETE`. No organisation-level mint path.
 
 ```
 api_tokens
   id UUID PK
-  organisation_id → organisations RESTRICT
-  user_id → users RESTRICT          -- who the token authenticates as
-  created_by_user_id → users RESTRICT
-  name VARCHAR(255) NOT NULL        -- label for list / revoke / activity
-  token_prefix VARCHAR(16) NOT NULL -- listed after create
+  user_id -> users RESTRICT           -- who the token authenticates as
+  created_by_user_id -> users RESTRICT
+  name VARCHAR(255) NOT NULL
+  token_prefix VARCHAR(16) NOT NULL
   token_hash VARCHAR(64) NOT NULL UNIQUE
   revoked_at TIMESTAMP NULL
   created_at TIMESTAMP NOT NULL
+```
 
+**Assumption (inherit-memberships, grants allowed):** if the mint body omits projects, the token inherits the user’s full project memberships (no grant rows). If the body lists projects, store a small grant table so a user can mint a reduced-role token for themselves:
+
+```
 api_token_grants
-  token_id → api_tokens CASCADE
-  project_id → projects RESTRICT
+  token_id -> api_tokens CASCADE
+  project_id -> projects RESTRICT
   role VARCHAR(20) NOT NULL         -- owner | member | viewer
   UNIQUE (token_id, project_id)
 ```
 
-Bound to **one** organisation. Cannot widen.
+Each grant role must be at or below the minter’s effective role on that project. Member cannot mint Owner. Viewer cannot mint a Member or Owner grant. Product-spec slice 23 allows a Viewer to create a token on their **own** user; that Bearer is read-only. Dan’s briefing said Viewer cannot mint — **slice 23 AC wins** for that slice (Viewer self-mint, read-only). Prefer inherit when the client does not send grants.
 
-Mint / list / revoke (Owner or Member on the projects they can write):
+Secret format: `flr_<random>`. Shown **once**. Store hash + prefix only. Revoke is immediate (next call -> `unauthorized`).
 
-```
-POST /api/v1/organisations/:organisation_id/tokens
-{ "name": "CI", "user_id": "...optional, default minter...", "projects": [ { "project_id": "...", "role": "member" } ] }
-```
+**Who may mint:** `:id` is the authenticated user (each user manages their own). Do not mint on another user’s path in Phase 0. Viewer self-mint is read-only as above.
 
-Returns the token (id, name, user, projects + roles) and the raw secret **once**. Also: `GET /api/v1/organisations/:organisation_id/tokens` (callers see tokens on projects they can write; Owners see all on those projects). Revoke: `POST /api/v1/tokens/:id/revoke` (immediate).
+`GET /api/v1/me` with Bearer: the user the token authenticates as (id, name, organisations, projects, **role per project**). Same shape as a cookie session. Optional token `name`. Never a scope list.
 
-Role on each grant must be at or below the minter’s effective role on that project. Member cannot mint Owner. Default `user_id` is the minter. Effective role for a request is the grant role (then the same effective-role function). Viewer cannot create / list secrets / revoke. Token used on a project with no grant → `not_found` (404).
+A typical CI token named `"CI"` minted for a Member user can start / finish / deliver **and** accept / reject.
 
-Secret format: `flr_<random>`. Shown **once**. Store hash only. Revoke is immediate (next call → `unauthorized`).
+Transitions: same `POST /api/v1/stories/:id/transitions` with `{ "action": ... }`. Member / Owner accept / reject **succeeds** (session or Bearer). Viewer -> `forbidden`. Start unestimated Feature -> `unestimated`. Illegal -> `invalid_transition` with `from` and `action`. Cross-tenant -> `not_found`. Revoked token -> `unauthorized`.
 
-`GET /api/v1/me` with Bearer: the user the token authenticates as (id, name, organisation, projects, **role per project**). Same shape as a cookie session. Never a scope list.
+Create story: **one API**. The API may default omitted `story_type` to Feature. `requester_id` is the authenticated user and must be a Member / Owner. Omitted panel -> icebox.
 
-Typical CI token named `"CI"` with grant **Member** can start / finish / deliver **and** accept / reject. Viewer grant is read-only.
-
-Transitions: same `POST /api/v1/stories/:id/transitions` with `{ "action": ... }`. Member / Owner accept / reject **succeeds** (session or Bearer). Viewer → `forbidden`. Start unestimated Feature → `unestimated`. Illegal → `invalid_transition` with `from` and `action`. Cross-tenant or no grant on that project → `not_found`. Revoked token → `unauthorized`.
-
-Create story: **one API**. The API may default omitted `story_type` to Feature (the UI also posts Feature). `requester_id` is the authenticated user and must be a Member / Owner. Default icebox if panel omitted.
-
-Bulk (shared route; session or Bearer): max 50, all-or-nothing, `Idempotency-Key`. Same key + body → original result. Same key + different body → `conflict`.
+Bulk (shared route; session or Bearer): max 50, all-or-nothing, `Idempotency-Key`. Same key + body -> original result. Same key + different body -> `conflict`.
 
 ```
 idempotency_keys
@@ -472,8 +325,205 @@ idempotency_keys
   UNIQUE (project_id, key)
 ```
 
-**Webhooks** are outbound project hooks (not a command API):
+Token table and handlers live in `domain/user`. They may land with or before the first Bearer test (slice 5 AC). Slice 23 is the independently acceptable mint + webhook story; it does not invent a second mint path.
 
+### State machines
+
+Business rules live in Go. No DB enum, trigger, or function.
+
+One table-driven package: `domain/story/machine`. Input: type, from-state, action, **effective role**, estimate — not a scope list. Output: to-state or a coded error (`invalid_transition`, `unestimated`, `forbidden`, `validation_failed`).
+
+`product-spec.md` wins on verbs. Who = Owner / Member; Viewers forbidden.
+
+**Feature / Bug**
+
+| action | from | to | Who |
+| --- | --- | --- | --- |
+| schedule | unscheduled | unstarted | Owner, Member |
+| icebox | unstarted only | unscheduled | Owner, Member |
+| start | unstarted | started | Owner, Member; Feature must be estimated (`0` allowed) |
+| start | unscheduled (Icebox) | started | Owner, Member; schedule+start. Lands started in Current (may overflow V). Feature already estimated (`0` allowed). |
+| finish | started | finished | Owner, Member |
+| deliver | finished | delivered | Owner, Member |
+| accept | delivered | accepted | Owner, Member |
+| reject | delivered | rejected | Owner, Member; non-empty reason |
+| restart | rejected | started | Owner, Member |
+| undo | last state-changing activity | previous | Owner, Member (slice 15). Viewer cannot. |
+
+Viewers cannot call any of the above. Insufficient role -> `forbidden`. There is no `unstart` verb.
+
+**Chore:** unscheduled -> unstarted -> started -> accepted. `finish` is the verb; result is `accepted`. No delivered / reject.
+
+**Release:** unscheduled in Icebox; created in Backlog or scheduled -> auto-`started`. `finish` -> `accepted`. No estimate.
+
+`PATCH` must not write `state`. Icebox verb is `icebox`. Undo is `undo` (slice 15): latest state-changing activity for any Owner/Member — not “own last change only.”
+
+**Start Feature** without estimate -> `unestimated`, no mutation. `0` is allowed. Start assigns the clicker as a story owner if owners < 5; if already 5 and clicker is not among them, Start still happens and they are **not** added. Auto-follow the clicker.
+
+**Reject reason (Phase 0):** product calls it a comment; the comments table is slice 13. Phase 0 stores the reason on `activities` (`kind = story.rejected`, `summary` = reason) and returns it on the story payload as `reject_reason` from the latest reject activity. Empty reason -> `validation_failed`, no state change.
+
+**Optimistic concurrency:** add `stories.revision INTEGER NOT NULL` default 1, incremented on every story mutation (fields, rank, state, estimate). Clients send `revision` or `If-Match`. Stale -> `conflict`.
+
+**`started_at`:** add `stories.started_at TIMESTAMP NULL`. Set on the **first** successful `start` only. Reject / restart do not clear it.
+
+**Undo (slice 15, design now):** latest **state-changing** activity only. Reorders do not write activity. Undo itself writes an activity. Prefer additive `from_state` / `to_state` VARCHAR columns on `activities` when slice 15 lands.
+
+Illegal verbs do not change state.
+
+### Planning (calculation, not an aggregate)
+
+The only stored window setting is `projects.iteration_length_days`. The UI draws **bands** from velocity + estimates. Membership of a story in current / next / later is recalculated whenever velocity, order, or estimates change. Stories do not store which band they are in.
+
+Normative fit rules and window clock: `velocity-and-planning.md`. Do not invent a third planner. Do not show a Recalculate button.
+
+**Window clock (from the velocity doc):** calendar windows that end at midnight, project TZ.
+
+- `L = project.iteration_length_days` (positive integer, default 7).
+- First start = configured start weekday on or before project-created date, project TZ.
+- Window `i`: `starts_on(i) = first_start + i * L days` at 00:00 TZ; `ends_at(i) = starts_on(i) + L days` at 00:00 TZ (half-open `[starts_on, ends_at)`). Displayed end = last calendar day (`ends_at - 1 day`).
+- Current window = the unique `i` where `starts_on <= now < ends_at`.
+- Changing length / timezone / start weekday replans immediately.
+
+**Velocity history** (calculation input, not a planning aggregate):
+
+```
+velocity_samples
+  id UUID PK
+  project_id -> projects CASCADE
+  starts_on DATE NOT NULL
+  ends_on DATE NOT NULL            -- last calendar day of the closed window
+  accepted_feature_points INTEGER NOT NULL
+  created_at TIMESTAMP NOT NULL
+  UNIQUE (project_id, starts_on)
+```
+
+Stories do **not** point at this table. A row is written at window end only: freeze accepted Feature points for the window that just closed. Deleted Features that were already in a completed total stay in that frozen integer. This is the “velocity observation” the velocity doc names. It is not an Iteration. It is not a home for stories.
+
+**Velocity (MVP), in Go, integer, in `domain/planning`:**
+
+```
+N = count(velocity_samples for the project)
+K = project.velocity_strategy   # 1-4, default 3
+if N == 0:
+    V = project.initial_velocity    # default 10
+else:
+    window = last min(K, N) samples, by starts_on desc
+    if every sample has accepted_feature_points == 0:
+        V = project.initial_velocity
+    else:
+        V = floor(mean(accepted_feature_points of window))
+```
+
+Accepted Feature points only. Estimate at **accept** time is what is recorded; after window end the frozen integer is the source. Bugs / chores / releases add 0 until the Phase 3 toggle (do not add the toggle column in Phase 0). Team strength % is not MVP.
+
+**`Pack`** (`domain/planning`) is a pure function (velocity doc signature):
+
+```
+pack(ordered_stories, velocity, length_in_days, now, timezone) -> bands
+```
+
+Each band is `{ starts_on, ends_at, kind: current | next | later, story_ids }`. It does **not** change `rank`. It does **not** write `stories.iteration_id`. It does **not** insert `iterations` rows. Frontend does not pack.
+
+Call Pack **inside the same transaction** as any mutation the velocity doc lists: create, delete, icebox, schedule, reorder, estimate, type change, start and other verbs, accept, reject, restart, undo, window end, V / length / TZ / strategy / initial-velocity / (later) toggles. After commit, publish the bus event. The board payload is the packed bands; it is not a stored assignment.
+
+Start on a Backlog or Icebox story jumps it to the ranked list + Current and **may** overflow V. Drag Backlog -> Current is **not** Start (slice 7).
+
+**Panel membership** (state + `accepted_at` + Pack bands — not a leftover `iteration_id`):
+
+| Panel | Rule |
+| --- | --- |
+| Icebox | `state = unscheduled`. Own order (`rank_list = icebox`). Not packed. |
+| Current | In-flight (`started` / `finished` / `delivered` / `rejected`) **or** `accepted` with `accepted_at` inside the current window **or** `unstarted` (and packed Releases) that Pack puts in the current band. |
+| Backlog | Ranked-list stories Pack puts in next / later bands. Visual headers only. |
+| Done | `accepted` and `accepted_at` has **aged past the current window**. **Flat list, newest accepted first.** Not grouped by a sample row. |
+
+Accepted-this-window stays in Current until window end. Done is empty until the first window end. Ranked list is Backlog + Current order (`rank_list = ranked`).
+
+**Window end** at `ends_at` (midnight, project TZ):
+
+1. Freeze `accepted_feature_points` = sum of Feature estimates accepted in that window (`starts_on <= accepted_at < ends_at`). Insert `velocity_samples`. Guard with unique `(project_id, starts_on)`.
+2. Recompute V.
+3. Those accepted stories age into Done (flat list).
+4. In-flight stay; leftover unstarted are re-packed. Unaccepted work is not failed and not iceboxed.
+
+Implementation: (a) a process ticker every 30s that selects projects whose current window is due, and (b) the same function at the start of every board read/write. Inject `platform` clock (via `ports`).
+
+**Test clock:** QA must advance past midnight. Production builds do not expose a clock endpoint. Test / `APP_ENV=test` (test compose, Postgres 5437) may expose `POST /api/v1/test/clock` (`{"now": "ISO-8601"}`) compiled behind a build tag or env that **production refuses to start with**. That is a test harness, not a fallback.
+
+`GET /api/v1/projects/:id/board` returns panels, current V, `initial` vs calculated, points/V, current displayed `ends` date, over-velocity badge if Current Feature-points > V, and computed band headers. Frontend does not pack.
+
+Projected delivery date (slice 20): last calendar day of the band Pack assigned. Icebox: “Not scheduled.” Not a field on the story.
+
+### Ranking
+
+Ground: `stories.rank VARCHAR(64)`, unique per project today.
+
+Icebox is its own ordered list (assumption; open question 4). Unique `(project_id, rank)` cannot hold two independent sequences without collisions.
+
+**Add (slice 2), do not change the type of `rank`:**
+
+- `stories.rank_list VARCHAR(16) NOT NULL` — Go values `icebox` | `ranked`.
+- Drop `UNIQUE (project_id, rank)`.
+- `UNIQUE (project_id, rank_list, rank)`.
+
+New Icebox story goes to the **top** of Icebox. Schedule (slice 3) moves `unscheduled` -> `unstarted`, `rank_list` `icebox` -> `ranked`, rank = **bottom** of the ranked list. Icebox of `unstarted` only: reverse. Cannot icebox started / finished / delivered / rejected / accepted.
+
+**Algorithm:** lexicographic midpoint on charset `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`. Generate between `before` and `after`; empty list -> a mid string (e.g. `U`). If the midpoint would exceed 64 characters, **rebalance** that `(project_id, rank_list)` in the same transaction. Rebalance is an implementation event, not an activity.
+
+**Illegal rank (server, not only UI):** unstarted cannot sit above started / finished / delivered / rejected in the **ranked** list. Reject the write, `illegal_rank`, row snaps back. Accepted-this-window do not return to Backlog by drag. Viewers cannot reorder.
+
+```
+POST /api/v1/projects/:project_id/stories/reorder
+{ "story_id": "...", "before_id": "..." | "after_id": "...", "revision": 3 }
+```
+
+Member or Owner, session or Bearer. Explicit neighbours. Do not default to “top.” Unique-violation or stale revision -> `conflict`. Retry once server-side on unique violation after re-read; then fail.
+
+Reorders do **not** write `activities` (slice 15).
+
+### Real-time (slice 17)
+
+Product: two sessions, same project, mutations appear within **2 seconds** without refresh; focus and comment drafts survive unless that story/comment was deleted; no presence / live cursors; dropped socket shows stale + reconnect; refresh heals; viewers get the same reads.
+
+**Decision:** SSE, not WebSockets (presence is out of scope). Not polling as the primary path.
+
+```
+GET /api/v1/projects/:project_id/events
+Accept: text/event-stream
+```
+
+Authenticated session or Bearer; effective role >= viewer. After each committed mutation, the bus publishes `{project_id, event, story_id, revision}`. MVP bus: **in-process** (`ports` interface, `platform` impl). Document single-API-replica. Do not add an external broker in Phase 0.
+
+Event names align with webhook events where they overlap (`story.created`, `story.updated`, `story.reordered`, `story.started`, ...). Patch by `story_id`; preserve local draft state.
+
+Slice 17 is Phase 1. Phase 0 may ship without SSE; the board remains correct on reload. When slice 17 starts, publish from the same post-commit hook used for webhooks.
+
+### Attachments (slice 14)
+
+Product: `png`, `jpg`, `jpeg`, `gif`, `webp`, <= 10 MB, max 20 per story; clipboard paste; no remote hotlink render; delete -> missing-image on embeds; viewers see, cannot upload; guessed URL serves nothing to the wrong tenant or a signed-out client.
+
+```
+attachments
+  id UUID PK
+  organisation_id -> organisations RESTRICT
+  project_id -> projects CASCADE
+  story_id -> stories CASCADE
+  uploaded_by_user_id -> users RESTRICT
+  content_type VARCHAR(100) NOT NULL
+  byte_size INTEGER NOT NULL
+  storage_key VARCHAR(512) NOT NULL
+  created_at TIMESTAMP NOT NULL
+```
+
+Serve only via authenticated `GET /api/v1/attachments/:id` (effective role >= viewer on that project). Check organisation **and** project before streaming. Do not put objects on a public bucket URL.
+
+**Storage (unspecified vendor):** `ports` storage interface (`Put`, `Get`, `Delete`), implemented in `platform`. Dev: local directory, keys `{organisation_id}/{project_id}/{story_id}/{attachment_id}`. Production: S3-compatible (env). Same interface, no fallback path.
+
+Validate type by sniffed bytes. Over 10 MB or 21st image -> `validation_failed`.
+
+### Webhooks (outbound; slice 23)
+
+Webhooks are outbound project hooks (not a command API):
 
 ```
 POST /api/v1/projects/:project_id/webhooks
@@ -496,7 +546,7 @@ webhooks
 webhook_deliveries
   id UUID PK
   webhook_id
-  event_id UUID NOT NULL            -- idempotency for the receiver
+  event_id UUID NOT NULL
   event VARCHAR(100) NOT NULL
   payload JSONB NOT NULL
   attempt INTEGER NOT NULL
@@ -505,11 +555,11 @@ webhook_deliveries
   last_status INTEGER NULL
 ```
 
-Signature (Technical Lead scheme): header `X-Flower-Signature: t=<unix>,v1=<hex>` where `v1` is HMAC-SHA256 of `{t}.{raw_body}` with the raw webhook secret. Receivers must reject if `|now - t| > 300s`. At-least-once. Retry non-2xx. Timeout 10s. Delivery is not a command; ignore reply body. Worker in the API process.
+Signature: header `X-Flower-Signature: t=<unix>,v1=<hex>` where `v1` is HMAC-SHA256 of `{t}.{raw_body}` with the raw webhook secret. Receivers must reject if `|now - t| > 300s`. At-least-once. Retry non-2xx. Timeout 10s. Delivery is not a command. Worker in the API process.
 
-Events align with SSE names where they overlap (`story.created`, `story.updated`, `story.reordered`, `story.started`, `story.finished`, `story.delivered`, `story.accepted`, `story.rejected`, and later comment/attachment events when those slices land). Envelope: `event_id`, `organisation_id`, `project_id`, `actor_id` (the user), optional `token_name`.
+Events align with SSE names. Product-spec lists a completed-window event (the time box rolling over — a `velocity_samples` insert, not an `iterations` row). Envelope: `event_id`, `organisation_id`, `project_id`, `user_id`, optional `token_name`.
 
-**Rate limits (product: a well-behaved 1 rps single-story transition must not 429).** Limits apply by credential (Bearer token vs session), not by special verbs:
+**Rate limits (product: a well-behaved 1 rps single-story transition must not 429).** Limits apply by credential:
 
 | Credential | Limit |
 | --- | --- |
@@ -517,7 +567,7 @@ Events align with SSE names where they overlap (`story.created`, `story.updated`
 | Bearer token (reads) | 600 / minute / token |
 | Human session | 120 / minute |
 
-In-memory per process in MVP (same single-replica assumption as SSE). `rate_limited` + 429 + `Retry-After`.
+In-memory per process in MVP. `rate_limited` + 429 + `Retry-After`.
 
 Error envelope for **all** 4xx/409 (session or Bearer) — **one** envelope:
 
@@ -533,10 +583,10 @@ No 200 with a partial surprise. No coerce (start that silently estimates 1).
 
 ```
 story_owners
-  story_id → stories CASCADE
-  user_id → users CASCADE
+  story_id -> stories CASCADE
+  user_id -> users CASCADE
   UNIQUE (story_id, user_id)
-  -- max 5 enforced in Go; sixth → owners_full
+  -- max 5 enforced in Go; sixth -> owners_full
 
 story_followers
   story_id, user_id
@@ -550,7 +600,7 @@ Viewers do not follow. Requester is a Member or Owner.
 
 Auth and tenancy:
 
-- `POST /api/v1/auth/signup` (email, password, …)
+- `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/magic-link`
 - `POST /api/v1/auth/magic-link/consume`
@@ -563,352 +613,23 @@ Auth and tenancy:
 - `GET  /api/v1/projects/:id`
 - `GET  /api/v1/projects/:id/board`
 - `POST /api/v1/projects/:id/invites`
-- `POST /api/v1/invites/:token/accept` (token in path or body; hash lookup)
+- `POST /api/v1/invites/:token/accept`
+
+Tokens (user-scoped):
+
+- `POST   /api/v1/users/:id/tokens`
+- `GET    /api/v1/users/:id/tokens`
+- `DELETE /api/v1/users/:id/tokens/:token_id`
 
 Stories:
 
-- `POST /api/v1/projects/:id/stories` (one contract: omitted `story_type` may default to Feature; UI also posts Feature)
+- `POST /api/v1/projects/:id/stories` (omitted `story_type` may default to Feature)
 - `GET  /api/v1/stories/:id`
 - `PATCH /api/v1/stories/:id` (fields, not state)
 - `POST /api/v1/stories/:id/transitions`
 - `POST /api/v1/projects/:id/stories/reorder`
 
-Exact JSON field names for the human board payload are internals; they must include id, title, type, state, estimate, rank, revision, iteration ends_on, reject_reason if rejected, owners. Do not invent extra product fields (no due date, no custom fields).
+Board payload internals must include id, title, type, state, estimate, rank, revision, current-window end date, reject_reason if rejected, owners. Do not invent extra product fields. Do not include a stored iteration id.
 
 ---
 
-## Refactor opportunities
-
-Only what a slice cannot ship without. No drive-by.
-
-| Must take | Why | Slice |
-| --- | --- | --- |
-| `projects.slug` unique per organisation, not globally | Tenancy; existing index is global | 0 |
-| `users.password_hash` nullable | Magic-link-only accounts; `NOT NULL` plus a dummy hash would be a fallback | 0 |
-| `UNIQUE (project_id, rank)` → `UNIQUE (project_id, rank_list, rank)` | Two lists, one `VARCHAR(64)` column | 2 |
-| Add `organisation_id` / timezone / velocity settings on `projects` | Missing vs product; do not recreate `projects` | 0 / 8 |
-| Add freeze columns on `iterations` | History-stable velocity | 8 |
-| Add `revision`, `rank_list`, `started_at` on `stories` | Concurrency, two lists, cycle-time later | 2 / 4 |
-| Add `email_verified_at` on `users` | Slice 0 AC | 0 |
-
-**Do not take in these slices:**
-
-- Rewrite the eight tables or rename existing columns.
-- Switch `rank` to integer or `bigint` priority.
-- `TIMESTAMP` → `TIMESTAMPTZ` across 000001.
-- DB enums / triggers / functions for state, role, or type.
-- GraphQL.
-- A second workflow engine or `planned` state (open question 9; only if the manual-planning slice needs it).
-- Extracting a microservice, adding Redis, or adding a queue product for Phase 0.
-- “Fixing” Icebox into a sequential stage to match the old root README.
-- Changing ports or the locked look.
-
----
-
-## Technical risks
-
-| Risk | Why it is real | Mitigation |
-| --- | --- | --- |
-| Planner drift from the velocity doc | Easy to “improve” leave-short or oversized Features | Pure `Pack` + table tests for **all three** worked examples in the velocity doc; QA script in that file; velocity doc wins reviews |
-| Double rollover / missed rollover | Ticker + request path; TZ midnight | `completed_at IS NULL` guard; injected `Clock`; test env clock endpoint; assert freeze is idempotent |
-| Rank unique collisions / 64-char overflow | Two lists; midpoint can grow | `rank_list` in the unique key; rebalance in-transaction; tests at the 64-char edge |
-| Cross-tenant leaks (id guess, search, files, tokens) | Multitenant from day one; 000001 has no org | Every query joins organisation; miss → 404; attachment GET checks org+project+auth; isolation tests ride slices 0, 1, 23 |
-| Token treated as a second identity | Activity needs a user; a token is not a login | `actor_id` = `api_tokens.user_id`; optional token `name` in activity payload/summary; session login stays password/magic-link |
-| Session cookie on :4273 → :8180 | Cross-origin | Explicit CORS origin + credentials; prod same-origin proxy |
-| SSE lost across API replicas | In-process bus | Single replica in MVP; `Bus` interface; do not pretend it is multi-node |
-| Webhook retry storms | At-least-once | Cap attempts (implementation: 8, exponential backoff); `event_id` for receiver idempotency; do not POST back as a user |
-| Magic link / invite token leak | Email and logs | Store hashes only; single-use; 14-day invite; do not log raw tokens |
-| Clock skew vs project TZ | Rollover definition is midnight **project** TZ | Store TZ; default `Australia/Melbourne`; all comparisons via `Clock` + that TZ |
-| Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Implementers will follow the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
-| Dummy `password_hash` for magic-link users | Hidden branch, forbidden by AGENTS.md | Nullable column; password login refuses NULL |
-| Existing projects without `organisation_id` if 000001 already ran | NOT NULL add | Schema: add nullable, boot **backfill** in Go (create an organisation only for orphan rows if any exist — this is data, not a SQL migration), then schema NOT NULL. Empty greenfield: backfill is a no-op |
-| Unique rank violation under concurrent drag | Two Members reorder | `revision` + one retry; then `conflict`; UI snaps back |
-| File store credentials / public buckets | Tenant files | Auth-only GET; key prefixed by organisation_id; no public ACL |
-| Rate limiter per process | Two replicas double the limit | Accept in MVP; document; do not 429 a well-behaved 1 rps single-story transition |
-
----
-
-## Test plan
-
-TDD: failing test first. Tests use the same production logic (no fake planner, no fake machine). Inject `Clock`, email outbox, storage, bus.
-
-QA tests each slice from its acceptance criteria **alone**, plus the companion rule docs named below. Fail without a meeting.
-
-### Slice 0 — signup, organisation, empty board
-
-**API / domain**
-
-- Unverified password signup: org create is rejected; no `organisations` row.
-- Verified password signup: organisation + first project; creator is organisation owner and project owner; `point_scale = linear`, `iteration_length_weeks = 1`, `initial_velocity = 10`, `timezone = Australia/Melbourne` (until fork).
-- Magic link to a new email: account created, `email_verified_at` set, same org+project flow.
-- Login password and login magic link both land on last project.
-- Board GET: four panels, all empty, V displays 10, no fake stories, no fake dates.
-- Reload: same organisation / project ids.
-- Cross-tenant: session A `GET` project/story id from org B → 404.
-
-**QA**
-
-- Stranger signs up, names organisation `Acme` and project `Trail`, sees Icebox / Backlog / Current / Done empty (Current may show dates + velocity 10).
-- Sign out, sign in, same empty board. Fail if another tenant’s name appears.
-- Fail if a new palette appears (frontend guide).
-- Fail if unverified password user can create an organisation.
-
-### Slice 1 — invite
-
-**API**
-
-- Owner invites `alex@example.com` as `member`: outbox has one email; pending invite listed; token hashed.
-- New email accept: signup, lands as Member.
-- Existing account accept: project in their list.
-- Invite as `viewer`: board GET works; `POST /stories`, invite, settings → `forbidden`.
-- Email already a member → visible error, one membership row.
-- Revoke → consume fails. Expiry 14 days. Resend invalidates old hash.
-- Member or Viewer `POST` invite → `forbidden`.
-- Isolation: invite accept does not grant a second project.
-
-**QA**
-
-- Two humans, one empty project. Viewer cannot create a story in UI **or** via API.
-
-### Slice 2 — Feature in Icebox
-
-**API**
-
-- Member/Owner create: `story_type=feature`, `state=unscheduled`, `estimate IS NULL`, `requester_id=me`, `iteration_id IS NULL`, `rank_list=icebox`, rank at top.
-- Empty title → `validation_failed`. Title 501 chars → rejected (column 500).
-- Viewer create → `forbidden`.
-- Second create sits above the first in Icebox.
-- Current / Backlog / Done unchanged. Planner ignores Icebox (no `iteration_id`).
-
-**QA**
-
-- Default add lands in Icebox. Fail if it appears in Current or affects V.
-
-### Slice 3 — schedule / icebox
-
-**API**
-
-- Schedule: `unscheduled` → `unstarted`, leaves Icebox, `rank_list=ranked`, rank at **bottom**.
-- Icebox: `unstarted` → `unscheduled`, `iteration_id` NULL, no projected date.
-- Icebox of started / finished / delivered / rejected / accepted → `invalid_transition` / `illegal_rank` as appropriate; no change.
-- Viewer move → `forbidden`.
-
-**QA**
-
-- Pull one Feature to Backlog; Icebox empty state returns. Fail if schedule Starts the story.
-
-### Slice 4 — estimate and start
-
-**API**
-
-- Estimate 0 / 1 / 2 / 3; stays `unstarted`. Other values → `validation_failed`.
-- Start unestimated Feature → `unestimated`, still `unstarted`.
-- Start estimated: `started`, `started_at` set once, `iteration_id=current` (overflow allowed), clicker in `story_owners`, locked follower.
-- Clear estimate only while `unstarted`. Started Feature cannot become NULL.
-- Start from Icebox (after estimate): `started` in Current, not `unstarted` in Backlog.
-- Viewer estimate/start → `forbidden`.
-- Sixth distinct owner on Start: Start succeeds, clicker not added (`owners_full` only when they **try** to add a sixth via assign — Start does not error).
-
-**QA**
-
-- Fail the slice if Start on unestimated succeeds. Fail if 0 is treated as unestimated.
-
-### Slice 5 — finish, deliver, accept
-
-**API**
-
-- started → finish → `finished`, still Current.
-- finished → deliver → `delivered`, still Current.
-- Any Member or Owner accept → `accepted`, `accepted_at` set, still Current, Done empty.
-- Viewer finish/deliver/accept → `forbidden` (session or Bearer).
-- Member or Owner accept Feature (session or Bearer) → `accepted`. Viewer Bearer accept → `forbidden`, no change.
-- finish on unstarted, accept on finished → `invalid_transition`, no change.
-- Tasks/blockers do not exist yet; do not block accept.
-
-**QA**
-
-- Accepted story still in Current. Fail if it jumps to Done before rollover.
-
-### Slice 6 — reject and restart
-
-**API**
-
-- delivered + reject + reason → `rejected`, still Current; reason on activity.
-- Empty reason → no change, `validation_failed`.
-- Viewer reject (session or Bearer) → `forbidden`. Member or Owner reject with reason (session or Bearer) → `rejected`.
-- Restart → `started`, still Current; reason remains in activity.
-- Finish + deliver again; new accept required.
-- Fail if reject jumps to `started` with no Restart, or if `rejected` is treated as terminal like `accepted`.
-
-**QA**
-
-- Rejected work is not in Backlog or Icebox.
-
-### Slice 7 — reorder
-
-**API**
-
-- Member/Owner reorder persists (reload).
-- Unstarted above started / finished / delivered / rejected → `illegal_rank`, snap back.
-- Accepted-this-iteration cannot be dragged to Backlog.
-- Ranked-list drop into Current does **not** Start and does not write `state`.
-- Icebox reorder independent; Icebox → Backlog is schedule (slice 3), not Start.
-- Viewer reorder → `forbidden`.
-- Keyboard reorder path exists (chord from UI Designer; fail if none).
-
-**QA**
-
-- Drag unstarted above started must fail. Fail if drag-to-Current starts the story.
-
-### Slice 8 — auto-plan
-
-Normative tests = velocity doc worked examples 1–3 **and** its QA short script.
-
-**API / domain (table-driven)**
-
-- New project V = 10. Five estimated Features totalling > 10: Current **short**, not over. Next Feature that would exceed 10 stays in the next Backlog iteration.
-- Never split.
-- Start a Backlog Feature that did not fit → Current, points may exceed 10, over-velocity badge.
-- Accept one Feature → still Current, not Done.
-- Advance test clock past `ends_on + 1 day 00:00` project TZ → that Feature in Done; V = that iteration’s accepted Feature points; `accepted_feature_points` frozen.
-- Reorder / estimate / accept / start / icebox / length change → board already recomputed.
-- Owner sets length 2–4 weeks → dates and pack change; completed iterations unchanged.
-- Icebox never auto-fills into Current.
-- Oversized Feature (`cost > V`): next empty iteration, over-V exception (velocity doc).
-- All-zero last K completed → V returns to initial.
-- Bugs/chores/releases not required; when present later they follow the velocity doc.
-
-**QA**
-
-- Run the seven-step script in `velocity-and-planning.md` (steps 5–6 that need Release / illegal drag may wait for slices 18 / 7 respectively; step 7 is this slice).
-- Fail if a Recalculate button is required. Fail if V is typed in as a target.
-
-### Isolation tests (ride 0, 1, 23)
-
-From `multitenancy.md`: same title in org A and B, search/list only A; A fetches B’s id → 404; Bearer whose token is not on that project → 404; attachment from A, signed-out → no file; viewer `POST /stories` → `forbidden` (session or Bearer — same code).
-
-### Later phases (notes, not Phase 0 work)
-
-| Slices | Test notes |
-| --- | --- |
-| 9 tasks | Toggle persists; complete-all does not Finish; accept **warns**; viewer read-only |
-| 10 blockers | Free-text + optional same-project story; auto-resolve on accept/delete; warn on accept |
-| 11 labels | Existing tables; `[a-z0-9-]+`; column max 100; do not exceed 100; filter does not change rank |
-| 12 owners / mentions | Max 5; requester is a Member/Owner; in-app + email; viewer mentionable, cannot follow |
-| 13 Markdown / comments | No raw HTML; `javascript:` rejected; tombstone delete |
-| 14 attachments | Type/size/count; auth GET; paste; missing-image after delete |
-| 15 activity / undo | No reorder spam; undo only latest state change; undo is an activity |
-| 16 keyboard | Every listed action has a chord from `ui.md` |
-| 17 SSE | Two sessions < 2s; draft preserved; stale + reconnect |
-| 18 types | Same machine package; Bug start without points; Chore finish=accept; Release colour vs **starts_on** |
-| 19 epics | Purple label; independent order; progress Feature points only |
-| 20 dates | `iterations.ends_on`; Icebox “Not scheduled”; no plan-overriding picker |
-| 21 charts | Completed bars only; empty states; V line “initial 10” while N=0 |
-| 22 search | Operators as specified; Done excluded unless `includedone:` |
-| 23 API tokens / webhooks | Mint org token with per-project grants. Bearer start/finish/deliver/accept as Member. Viewer grant `forbidden` on mutations. Member cannot mint Owner. Token without a grant on project B → 404. Webhooks are outbound project hooks. |
-| 24 My Work / saved search | Owner/requester rules as specified |
-| 25 workspaces | One organisation; not a permission boundary |
-| 26 CSV | Owner only (assumption); create-only, all-or-nothing |
-| 27 cycle time | First `started_at` → `accepted_at`; reject does not reset |
-| 28 scales / bugs-chores toggle | No history conversion; toggle reversible |
-| 29 split panes | Both live-update |
-| 30 manual Current | Future iterations still auto-plan |
-
----
-
-## Quality bar
-
-From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
-
-**Testing**
-
-- TDD: failing test, then code. `nix-shell --run 'make test'` and `make lint` after every code change.
-- 90%+ line coverage on API and frontend. Do not lower the gate.
-- No placeholder, fake, or unused production branches. Tests exercise the same machine, planner, and auth as runtime.
-- **No fallbacks.** Dummy password hashes, silent estimate-on-start, “if planner fails return last board”, or catch-all `state = body.State` are firable. Fail closed with a coded error.
-- Do not ignore test, script, or lint errors.
-- Documentation-only changes: review the diff; do not run the code gates unless code changed.
-
-**Types and API**
-
-- Go: wrap with `fmt.Errorf("%w")`. Structured Zap fields: `component`, `operation`, `organisation_id`, `project_id`, `actor_id`. Never log passwords, raw session/magic/token/webhook secrets, or Authorization headers.
-- Frontend: TypeScript strict; oxlint; `tsc --noEmit`. Types for board/story match the API.
-- One error envelope. The codes are the codes (shared; session or Bearer).
-
-**Migrations**
-
-- Schema only. Data backfills run in Go on boot.
-- No DB enums, triggers, or functions. Plural table names. UUID `id` PKs.
-- Australian / New Zealand / UK names (`organisations`).
-- After 000001, name files with `date +%Y%m%d%H%M%S`.
-- Additive columns and new tables. Do not rewrite 000001.
-- `point_scale` / `role` / `state` / `story_type` stay strings.
-
-**Logging and config**
-
-- Env from `.env.example`. No secrets in the repo.
-- Clock, email, storage, bus are injected. Production has one real clock: `time.Now`.
-
-**Feature flags and compatibility**
-
-- No flags to hide Icebox, velocity, or accept-by-any-Member.
-- Greenfield compatibility: old overview is wrong; do not keep `rejected` as a terminal peer to “match” it.
-- Cookie session and Bearer share machines and rank rules.
-
-**Authz checklist (every mutating handler)**
-
-1. Authenticate (session or `flr_` bearer).
-2. Resolve organisation from the project, not from a client-supplied org header alone.
-3. Effective role (Owner / Member / Viewer) — **not** a scope list.
-4. Machine / rank / estimate rules.
-5. Transaction: mutate, activity, pack, revision++.
-6. Commit then bus.
-
-**Spelling:** organisation, behaviour, colour (docs). Code identifiers for new tables: `organisations`, `organisation_id`.
-
----
-
-## Implementation assumptions (forced by schema or stack)
-
-These are not new product rules. Product remains unspecified where marked.
-
-| Item | Status | Assumption if we must ship |
-| --- | --- | --- |
-| Username at signup | Locked 20 Aug 2026 | Infer from email local-part; uniquify; no username field in slice 0; editable later |
-| Organisation public slug | Unspecified (fork 2) | UUID routes; no public org slug in Phase 0 |
-| `display_name` | Unspecified | Copy username at create |
-| Project TZ | Fork 3; velocity doc already says store + default Melbourne | `projects.timezone` default `Australia/Melbourne` |
-| Icebox vs one rank | Assumed two lists (fork 4) | `rank_list` + unique `(project_id, rank_list, rank)` |
-| Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
-| Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
-| HTTP prefix | Existing README | **`/api/v1`** mount; same bodies and errors for session and Bearer; no second `/v1` tree |
-| Create-story `story_type` | Shared contract | One API; omitted `story_type` may default to Feature (UI also posts Feature) |
-| Create-story `requester_id` | Product: requester is a Member/Owner | `requester_id` is the authenticated user (session or Bearer) and must be a Member / Owner |
-| Create-story `panel` | Product: default add is Icebox | Omitted `panel` → `icebox` for every actor |
-| Token mint path + role-cap | Agreed with Product Owner | `POST /api/v1/organisations/:organisation_id/tokens` with `api_token_grants` (per-project role ≤ minter). Default `user_id` is the minter. Member cannot assign `owner`. Viewer cannot mint. Owner lists all tokens on those projects; Member lists/revokes tokens they created. |
-| Undo | Product-spec: Owner, Member on latest state change | Same for session or Bearer. Not “own last change only”. |
-| Human session mechanism | Unspecified | Server-side cookie sessions |
-| Live transport | Unspecified | SSE + in-process bus, slice 17 |
-| Attachment / email vendors | Unspecified | Storage and email interfaces; local dir + SMTP/outbox |
-| Rate-limit numbers | “TL picks” | 60 mutations / minute / Bearer token, burst 10; 600 reads / minute / token; 120 / minute / human session |
-| Webhook HMAC scheme | “TL specifies” | `t=<unix>,v1=<hmac-sha256>` |
-| Magic/verify link TTL | Unspecified | 30 minutes |
-| Password hash | Unspecified | bcrypt, cost 12, nullable column |
-| Iteration start weekday storage | Implied Monday | ISO `1` = Monday on `projects.iteration_start_weekday` |
-| `planned` state | Fork 9, later | Do not add in Phase 0 |
-
-If Dan answers a fork, update this file in the same PR as the code change. Do not leave the doc lying.
-
----
-
-## Required reading (implementers)
-
-- This file
-- `product-spec.md` (the slice you are in, plus machines)
-- `velocity-and-planning.md` if the slice touches the plan (3, 4, 7, 8, 18, 20, 21, 30)
-- `multitenancy.md` if the slice touches authz (0, 1, 23, 25)
-- `open-questions.md` assumptions
-- `000001_create_core_schema.up.sql`
-- repo `AGENTS.md`, `api/internal/migrations/AGENTS.md`
-- `docs/reference/frontend-design-guide.md` for UI work (do not invent a look)
-- `ui.md` once the UI Designer has written it

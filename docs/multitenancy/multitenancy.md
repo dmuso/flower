@@ -18,10 +18,10 @@ Spelling: **organisation**, not organization. Use that in new tables, fields, an
 
 ```
 Account (human login)
+  └── User API token (credential of that user; list/create/revoke on the user)
   └── Membership in one or more Organisations
         └── Project
               └── Project membership (owner | member | viewer)
-        └── API token (credential for a user/membership; not a tenant)
         └── Workspace (Phase 3; a view, not a tenant)
 ```
 
@@ -35,7 +35,7 @@ Deleting an account (no slice yet) must not delete an organisation that still ha
 
 ### Organisation
 
-The **tenant**. Isolation boundary. Billing boundary when billing exists. All projects, stories, files, tokens, webhooks, and audit live under an organisation.
+The **tenant**. Isolation boundary. Billing boundary when billing exists. All projects, stories, files, webhooks, and audit live under an organisation.
 
 Created on first-run signup (slice 0): the new account becomes the first **organisation owner** and must create a first project in the same flow. No organisation-without-a-project on first run. After someone deletes the last project, empty-organisation state is “create a project.”
 
@@ -47,7 +47,7 @@ One ranked list, one Icebox, one velocity, one board. Lives in exactly one organ
 
 Creating a project: **organisation owner** only in MVP. Creator is a project owner.
 
-Existing columns stay: `name`, `slug`, `description`, `point_scale`, `iteration_length_weeks`. Add (without rewriting): `organisation_id`, and later timezone, velocity strategy, initial velocity, bugs-and-chores-estimable. `slug` is unique today **globally**; under tenancy it should be unique **per organisation**. Technical Lead migrates that carefully; do not invent a new slug scheme in this spec.
+Existing columns stay: `name`, `slug`, `description`, `point_scale`, leftover weeks-named length. Product length is **days** (default 7) on the project. Add (without rewriting): `organisation_id`, and later timezone, velocity strategy, initial velocity, bugs-and-chores-estimable. `slug` is unique today **globally**; under tenancy it should be unique **per organisation**. Technical Lead migrates that carefully; do not invent a new slug scheme in this spec.
 
 ### Project membership and roles
 
@@ -55,9 +55,9 @@ Exactly one role per membership:
 
 | Role | Meaning |
 | --- | --- |
-| **owner** | Full project control. Invite, change roles, settings (iteration clock, scales, toggles), delete stories, mint API tokens, export/import (Phase 3). Can accept / reject. |
-| **member** | Build. Create/edit/estimate/reorder/icebox, all legal verbs including **accept and reject**, tasks, labels, comments, attachments, tokens for projects they can write, saved searches, My Work. Cannot invite. Cannot change roles. Cannot change iteration / scale settings. Cannot import/export. |
-| **viewer** | Read. Board, stories, activity, charts, search, Icebox, images. Nothing that mutates. Cannot accept. |
+| **owner** | Full project control. Invite, change roles, settings (length in days, scales, toggles), delete stories, export/import (Phase 3). Can accept / reject. Manages their own API tokens. |
+| **member** | Build. Create/edit/estimate/reorder/icebox, all legal verbs including **accept and reject**, tasks, labels, comments, attachments, own tokens, saved searches, My Work. Cannot invite. Cannot change roles. Cannot change length / scale settings. Cannot import/export. |
+| **viewer** | Read. Board, stories, activity, charts, search, Icebox, images. Nothing that mutates. Cannot accept. May create a token on their own user; it can only read. |
 
 **Any Member can accept.** Requester *should*. My Work surfaces the requester’s Delivered stories. There is no accept ACL among Members and Owners. History is undo. This supersedes `docs/product/overview.md` (“the requester accepted the work”) as a hard rule.
 
@@ -76,10 +76,10 @@ A person may be `viewer` on project A and `member` on project B in the same orga
 
 ## Isolation rules
 
-1. **Tenant key is organisation.** Every story, comment, file, token, webhook, iteration, search, and membership is reachable only through an organisation the caller belongs to.
+1. **Tenant key is organisation.** Every story, comment, file, webhook, search, and membership is reachable only through an organisation the caller belongs to.
 2. **No cross-organisation read.** Session for org A must not receive org B’s stories by id, search, webhook, or export. Cross-tenant id → **404**.
-3. **No cross-organisation write.** The project’s organisation must match the session or token (the token is a credential, not an agent scope).
-4. **Tokens do not span organisations.** An API token is a credential minted in one organisation. A second organisation needs a new token.
+3. **No cross-organisation write.** The project’s organisation must match the session or the **user** the token belongs to.
+4. **Tokens are user credentials**, not an organisation mint path. List / create / revoke at `/api/v1/users/:id/tokens`. A token may name projects the user can already open. A request is still organisation-scoped (cross-tenant → 404).
 5. **Workspaces do not span organisations.**
 6. **Attachments are not public without auth.** Guessed file URL serves nothing to the wrong tenant or a signed-out client. Viewers of **that** project can see the image.
 7. **Invites are project-scoped.** Accepting joins that project (and lists the organisation) without access to other projects.
@@ -100,7 +100,7 @@ They **cannot**:
 - Tasks, blockers, labels (they can filter), owners, requester, follow
 - Comment, edit description, upload or delete attachments
 - Invite, revoke, change roles, settings
-- Create or revoke API tokens, register webhooks
+- Register webhooks
 - Export or import
 - Create or delete epics (they can view and filter)
 - Change point scale or planning mode
@@ -113,6 +113,7 @@ They **can**:
 - Read the board (Icebox / Backlog / Current / Done), story detail, Markdown, images, activity, tasks, blockers, labels, epics, charts, search
 - Change their own password / request a magic link
 - Make a **personal** workspace of projects they can view (Phase 3)
+- Create a token on their own user (`/api/v1/users/:id/tokens`); that token can only read
 
 Fail QA if a viewer can `POST` a story via the API.
 
@@ -120,13 +121,13 @@ Fail QA if a viewer can `POST` a story via the API.
 
 - Invite or change roles
 - Delete the project or the organisation
-- Change iteration length, timezone, start weekday, point scale, velocity strategy, initial velocity, bugs-and-chores toggle, auto-plan flag
+- Change length in days, timezone, start weekday, point scale, velocity strategy, initial velocity, bugs-and-chores toggle, auto-plan flag
 - Import or export CSV
 - Remove an Owner
 - Create a project (organisation owner only, MVP)
-- Mint a token for a project they do not belong to as member/owner
+- Mint a token for another user, or for a project they do not belong to as member/owner
 
-They **can** accept, reject, restart, undo, and mint API tokens for projects they can write. A token is a credential for a user/membership (role at or below the minter; Member cannot mint Owner). Same `/api/v1` handlers as a session cookie.
+They **can** accept, reject, restart, undo, and create API tokens on **their own user** (`/api/v1/users/:id/tokens`) with a role at or below their own (Member cannot mint Owner). Same `/api/v1` handlers as a session cookie.
 
 ## Workspaces (Phase 3)
 
@@ -165,11 +166,11 @@ Removing someone from their last project in the organisation removes the organis
 | --- | --- | --- |
 | Organisation name | Organisation owner | Organisation |
 | Project name | Project owner | Project |
-| Iteration length, start weekday, timezone | Project owner | Project |
+| Length in days, start weekday, timezone | Project owner | Project |
 | Velocity strategy (1–4), initial velocity | Project owner | Project |
 | Point scale, bugs-and-chores points, auto-plan Current | Project owner | Project (later slices) |
 | Members and invites | Project owner | Project |
-| API tokens | Project owner or member (role at or below their own) | Organisation + listed projects |
+| API tokens | The user (own tokens). Role at or below their own on selected projects | User (`/api/v1/users/:id/tokens`) |
 | Webhooks | Member or owner | Project |
 
 No per-project custom roles. No per-field permissions.
@@ -178,7 +179,7 @@ No per-project custom roles. No per-field permissions.
 
 - Same story title in org A and org B. Session A search returns only A.
 - Session A fetches story id from B → 404.
-- Token from A on a project in B → unauthorized / 404.
+- Token belonging to a user with no membership in B, used on a project in B → unauthorized / 404.
 - Attachment URL from A, signed-out → no file.
 - Viewer session, `POST /stories` → forbidden.
 - Workspace builder cannot pick org B’s project.

@@ -19,6 +19,7 @@ Planning, product, and technical reference for Flower.
 ### Feature specs
 
 - [Product spec (slices + acceptance criteria)](core-workflow/product-spec.md)
+- [Domain model](core-workflow/domain-model.md)
 - [UI](core-workflow/ui.md)
 - [Technical approach](core-workflow/technical-approach.md)
 - [Velocity and planning](velocity-planning/velocity-and-planning.md)

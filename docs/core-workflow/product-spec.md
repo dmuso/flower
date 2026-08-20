@@ -16,7 +16,7 @@ Who feels it:
 
 - **Product owners** with a backlog in one tool, dates in a spreadsheet, and status in standup. They cannot answer “when does this land” without planning theater.
 - **Developers** asked to update tickets that do not match how work moves, and who lose the top of the list to unestimated Features or work that was never accepted.
-- **Automation** (scripts, CI, coding agents) expected to keep the board current by scraping, impersonating a person, or guessing which status string means done.
+- **Automation** (scripts, CI, Grove) expected to keep the board current by scraping, impersonating a person, or guessing which status string means done.
 
 What is missing:
 
@@ -26,7 +26,7 @@ What is missing:
 
 What better looks like:
 
-A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs iterations from velocity. A second person sees the move without refresh. A Member or Owner mints an **API token** and a client (CI, a script, Grove) calls the same story API as the frontend.
+A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs the ranked list into Current and future visual bands from velocity. A second person sees the move without refresh. A Member or Owner mints a **user API token** (`/api/v1/users/:id/tokens`) and a client (CI, a script, Grove) calls the same story API as the frontend.
 
 The existing `docs/product/overview.md` is the right shape and the wrong detail (`rejected` as a peer end-state). This spec supersedes those mistakes. LANDING requires the overview to be corrected in the same PR.
 
@@ -54,9 +54,9 @@ Daily: Start the next estimated Feature, check tasks, paste a screenshot, Delive
 
 ### Automation — Grove
 
-Grove is a coding agent or CI job that keeps the board current. It is a **client**, not a distinct actor type. It authenticates with a generic **API token** minted for a Member (or Owner) user/membership.
+Grove is a **client** (CI, a script, or a coding job) that keeps the board current. It authenticates with a **user API token** minted for a Member or Owner at `/api/v1/users/:id/tokens`. It is not a distinct user type.
 
-It needs: a Bearer token (not someone’s password); the **same** `/api/v1/...` story API the app uses; `unestimated` if it tries to Start a Feature without points. Activity is attributed to the user the token was minted for.
+It needs: a Bearer token (not someone’s password); the **same** `/api/v1/...` story API the app uses; `unestimated` if it tries to Start a Feature without points. Activity is attributed to the **user** the token belongs to.
 
 Permissions are Owner / Member / Viewer — the whole model. A token minted for a Member can do everything Luis can, including accept and reject. A Viewer token can only read. The token does not add scopes.
 
@@ -86,7 +86,7 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 See also [tracker-brief.md](./tracker-brief.md). Short form:
 
 - Email + password and magic link for humans in MVP; SSO later. Session cookie for the app.
-- Generic **API token** (Bearer): minted for a user/membership, role at or below the minter. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the user the token was minted for. No `/agents` endpoint. No agent token.
+- **User API token** (Bearer): list / create / revoke at `/api/v1/users/:id/tokens`. Each user manages their own. Role at or below their own on the selected projects. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. Not org-level.
 - Roles: Owner / Member / Viewer only. **Any Member or Owner can accept.** Viewers read-only. Requester *should* accept; My Work surfaces Delivered. No accept ACL in MVP. History is undo.
 - Feature/Bug reject → `rejected`; Restart → `started`; stays in Current.
 - Default points Linear 0/1/2/3. Fibonacci 0/1/2/3/5/8 and Powers of 2 later. Custom later and revertible.
@@ -100,7 +100,7 @@ See also [tracker-brief.md](./tracker-brief.md). Short form:
 
 ## Tech stack (constraints)
 
-PostgreSQL 17. Go + Gin API on **8180**. SolidJS on Bun on **4273**. Monorepo. Multitenant from day one. Technical Lead designs the approach.
+PostgreSQL 17. Go + Gin API on **8180**. SolidJS on Bun on **4273**. Monorepo. Multitenant from day one. Domain logic lives in `api/internal/domain/<domain>`. Frontend is split by domain (not one `api.ts`). Technical Lead owns the tree — see [domain-model.md](./domain-model.md).
 
 ## Types and state machines
 
@@ -137,7 +137,7 @@ Finish **is** accept. No delivered, no reject. Unestimated by default. Does not 
 
 Marker, not work. `unscheduled` in Icebox. Created in Backlog or dragged there → auto-`started`. Finish → `accepted`.
 
-No estimate. Optional **target date** (a comparison, not a plan override). Place at the **end** of the milestone’s stories (all work for that release sits **above** the marker). Colour: blue if the iteration that contains the marker starts on or before the target; red if that iteration **starts after** the target. No colour if there is no target date.
+No estimate. Optional **target date** (a comparison, not a plan override). Place at the **end** of the milestone’s stories (all work for that release sits **above** the marker). Colour: blue if the **computed window** that contains the marker starts on or before the target; red if that window **starts after** the target. No colour if there is no target date.
 
 ## Story owners, requester, follow
 
@@ -149,7 +149,9 @@ No estimate. Optional **target date** (a comparison, not a plan override). Place
 
 Already there: `users`, `projects`, `project_memberships`, `iterations`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `accepted_at`), `labels`, `story_labels`, `activities`.
 
-Not there: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens. Slices that need them add tables. Do not redesign the eight.
+`iterations` and `stories.iteration_id` are leftover. Product does not persist iteration records as the plan and does not assign stories to a window row. Length is **days** on the project (existing `iteration_length_weeks` is leftover naming). `activities` attributes a change to a `users` row (000001 column name is leftover); product language is **user**.
+
+Not there: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens. Slices that need them add tables. Do not redesign the eight, and do not pretend 000001 is the planning model.
 
 ## Ordered vertical slices
 
@@ -172,7 +174,7 @@ Acceptance criteria:
 - Given I have no account, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
 - Given I have no account, when I open a magic link to a new email, then an account is created and I am on the same organisation + project flow.
 - Given I have an account, when I sign in with password **or** magic link, then I land on my last project.
-- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show iteration dates and **velocity 10** (initial). Backlog may show future iteration headers once stories exist; on an empty board, empty copy is enough.
+- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show the computed window end and **velocity 10** (initial). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
 - Columns follow `docs/reference/frontend-design-guide.md` (full-height, paper, bloom current highlight). Fail if a new palette appears.
 - Unverified password signup cannot create an organisation.
 - Creator is organisation owner and project owner.
@@ -199,7 +201,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Given I am a Member or Owner, when I create a Feature from Icebox (or the default add, which is Icebox), then it appears in Icebox as type `feature`, state `unscheduled`, no estimate, requester = me, no iteration.
+- Given I am a Member or Owner, when I create a Feature from Icebox (or the default add, which is Icebox), then it appears in Icebox as type `feature`, state `unscheduled`, no estimate, requester = me, not in the ranked list (no band, no projected date).
 - Empty title is rejected. Title max **500** (existing column).
 - Viewer cannot create (UI and API).
 - Icebox is ordered (own order). New story goes to the **top** of Icebox (most recently captured). 
@@ -212,7 +214,7 @@ Acceptance criteria:
 Acceptance criteria:
 
 - Given an `unscheduled` Feature in Icebox, when I move it to Backlog (drag or action), then it is `unstarted`, it leaves Icebox, and it sits at the **bottom** of the ranked list (does not jump the queue).
-- Given an `unstarted` Feature in Backlog, when I move it to Icebox, then it is `unscheduled`, drops out of iteration math, and loses any projected date.
+- Given an `unstarted` Feature in Backlog, when I move it to Icebox, then it is `unscheduled`, drops out of `pack`, and loses any projected date.
 - I cannot icebox `started`, `finished`, `delivered`, `rejected`, or `accepted` stories.
 - Viewer cannot move.
 - After this slice, an empty Icebox shows the empty state again.
@@ -238,7 +240,7 @@ Acceptance criteria:
 
 - Started → Finish → `finished`, stays in Current.
 - Finished → Deliver → `delivered`, stays in Current. Requester sees it in My Work once that slice exists; until then, Delivered is visible in Current.
-- Given `delivered`, when **any** Member or Owner accepts, then state is `accepted`, `accepted_at` is set, and the story **remains in Current** (not Done). Done is empty until the iteration rolls.
+- Given `delivered`, when **any** Member or Owner accepts, then state is `accepted`, `accepted_at` is set, and the story **remains in Current** (not Done). Done is empty until that accept ages past the current window.
 - Viewer cannot finish / deliver / accept.
 - Illegal verbs fail and do not change state (finish on unstarted, accept on finished, …).
 - Incomplete tasks / open blockers do not exist yet; when they do, Accept **warns** and still proceeds.
@@ -264,27 +266,29 @@ Acceptance criteria:
 
 - Drag and keyboard reorder persist after reload for Members and Owners.
 - **Unstarted cannot be dragged above started** (nor above finished / delivered / rejected). The drop is rejected and the row snaps back. Copy explains why.
-- Accepted-this-iteration stories live in Current; they do not go back to Backlog by drag.
+- Accepted-this-window stories live in Current; they do not go back to Backlog by drag.
 - Dragging Backlog → Current does **not** Start. Auto-plan membership is not a drop-to-start. Start is a verb. (Manual planning later is the escape hatch.)
 - Icebox order is independent and reorderable. Drag Icebox → Backlog is slice 3 (schedule), not a silent Start.
 - Viewers cannot reorder.
 - UI Designer sets the keyboard chord; a keyboard reorder path must exist.
 
-### Slice 8 — Team sees iterations auto-fill from velocity
+### Slice 8 — Team sees Current and future bands auto-fill from velocity
 
-**Why independently acceptable:** the Tracker moment. Rules: [velocity-and-planning.md](./velocity-and-planning.md).
+**Why independently acceptable:** the Tracker moment, computed live. Rules: [velocity-and-planning.md](./velocity-and-planning.md).
 
 Acceptance criteria:
 
-- Brand-new project: velocity **10** (initial). Current auto-fills estimated unstarted Features from the top of the ranked list up to 10 points, **leaving Current short** rather than putting a story that would exceed 10 into Current.
+- Brand-new project: velocity **10** (initial). **Current is the head of the ranked list that fits this window’s velocity.** Auto-fill estimated unstarted Features from the top up to 10 points, **leaving Current short** rather than putting a story that would exceed 10 into Current.
+- Future bands in Backlog are **visual** only — the same `pack` function, not stored rows, not story assignments.
 - Starting a Backlog or Icebox Feature still jumps it to Current and **may** make Current > 10.
-- After the first iteration completes (midnight project TZ), velocity becomes accepted **Feature** points of that iteration (and then the rolling last 3, setting 1–4, default 3).
-- A story is never split. If the next Feature is 3 and remaining is 1, it stays in the next Backlog iteration.
-- Reorder, estimate, accept, start, icebox, or rollover → plan already recomputed. No Recalculate button.
-- Accepted this iteration: still in Current. After rollover: those accepted stories are in Done, grouped under the completed iteration.
-- Iteration length default 1 week, Owner may set 1–4 weeks. Changing length replans.
+- Window **end** (chosen rule): midnight at `starts_on + L days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `L` is length in days. After the first window completes, velocity becomes accepted **Feature** points of that window (and then the rolling last 3, setting 1–4, default 3).
+- A story is never split. If the next Feature is 3 and remaining is 1, it stays in the next Backlog **band**.
+- Reorder, estimate, accept, start, icebox, length change, or window end → plan already recomputed. No Recalculate button.
+- Accepted this window: still in Current until the current window ends. After the window ends: those accepted stories are in Done as a **flat** list (newest accepted first), not grouped by a window row.
+- Length default **7 days**. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. Not a stored iteration list.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
-- An estimated Feature with cost > V auto-fills only into an iteration with 0 Feature-points and marks that iteration over velocity; it never sits unpacked.
+- An estimated Feature with cost > V auto-fills only into a band with 0 Feature-points and marks that band over velocity; it never sits unpacked.
+- Fail the slice if the planner writes `iterations` rows or `stories.iteration_id`, or if Current is “iteration 3”.
 
 Phase 0 is not done without slice 8.
 
@@ -382,12 +386,12 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Activity list on the story: created, estimated, scheduled/iceboxed, started, finished, delivered, accepted, rejected (reason), restarted, requester/owners/title changed, blocker, attachment, comment, label. Actor, time, from → to.
+- Activity list on the story: created, estimated, scheduled/iceboxed, started, finished, delivered, accepted, rejected (reason), restarted, requester/owners/title changed, blocker, attachment, comment, label. **User**, time, from → to.
 - Reorders do not spam activity.
 - **Undo** on the latest state-changing activity restores the previous state (Accept → Delivered, Reject → Delivered, Start → Unstarted, Icebox Start → Unscheduled, Restart → Rejected, Finish → Started, Deliver → Finished). Undo is itself an activity.
 - You cannot undo a non-state event (a comment) with this control.
 - Viewer can read activity, cannot undo.
-- Existing `activities` table is the ground (`kind`, `summary`, `actor_id`).
+- Existing `activities` table is the ground (`kind`, `summary`, user id). Product language is **user**.
 
 ### Slice 16 — Member runs the board from the keyboard
 
@@ -426,7 +430,7 @@ Acceptance criteria:
 - Feature: estimate required to Start; points count when accepted.
 - Bug: same machine as Feature; unestimated by default; may Start without points; does **not** count toward velocity.
 - Chore: unscheduled → unstarted → started → accepted; Finish accepts; no reject; unestimated; 0 velocity.
-- Release: marker; auto-started in Backlog; Finish accepts; optional target date; sits at the end of its stories; blue/red per velocity doc.
+- Release: marker; auto-started in Backlog; Finish accepts; optional target date; sits at the end of its stories; blue/red vs the **computed window** that contains the marker (velocity doc).
 - Only `unstarted` or `unscheduled` stories may change type. Changing to Release clears estimate.
 - “Bugs and chores may be given points” is **not** in this slice (Phase 3, reversible).
 
@@ -451,10 +455,11 @@ Rules: [velocity-and-planning.md](./velocity-and-planning.md).
 
 Acceptance criteria:
 
-- A story assigned to an iteration shows that iteration’s **end date** as the projection.
-- Icebox and (if ever unpacked) stories with no iteration: no date — “Not scheduled.”
-- Release date = end date of the iteration that **contains the marker** (the marker sits at the end of its stories, so that iteration is when the last story above it packed). Target date optional; marker is blue or red as specified. **No date picker that sets the plan.** Target date is the only date the user types, and it does not move stories.
-- Reorder / estimate / accept / velocity change updates dates and colours live.
+- A story that `pack` placed in a computed band shows that band’s **end date** as the projection (last calendar day of the window).
+- Icebox and (if ever unpacked) stories with no band: no date — “Not scheduled.”
+- Release date = end date of the **computed window that contains the marker** (the marker sits at the end of its stories, so that window is when the last story above it packed). Target date optional; marker is blue or red versus that window’s **start**. **No date picker that sets the plan.** Target date is the only date the user types, and it does not move stories.
+- Reorder / estimate / accept / velocity / length change updates dates and colours live.
+- Fail the slice if a projection is read from an iteration row or `stories.iteration_id`.
 
 ### Slice 21 — Member reads the velocity chart and burn-up
 
@@ -462,8 +467,8 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Velocity: bar per **completed** iteration (accepted Feature points); line at current velocity (initial 10 until N≥1). Current iteration is not a completed bar.
-- Burn-up: cumulative accepted Feature points vs scoped Feature points (snapshot at rollover + live “now”). Releases/bugs/chores add 0 to scope unless the later toggle is on.
+- Velocity: bar per **completed window** (accepted Feature points); line at current velocity (initial 10 until N≥1). Current window is not a completed bar.
+- Burn-up: cumulative accepted Feature points vs scoped Feature points (snapshot at window end + live “now”). Releases/bugs/chores add 0 to scope unless the later toggle is on.
 - Empty charts have empty states, no fake history.
 - Viewers can see charts.
 
@@ -478,21 +483,22 @@ Acceptance criteria:
 - Results do not reorder the board. Empty result: one next action (clear).
 - Scoped to the current project in this slice.
 
-### Slice 23 — Member or Owner mints an API token and calls the same story API
+### Slice 23 — Member or Owner mints a user API token and calls the same story API
 
-**Why independently acceptable:** a client (CI, a script, Grove) delivers when CI is green, on the same endpoints Luis uses, with a Bearer token.
+**Why independently acceptable:** Grove (or CI, or a script) is a **client with a user token**. It delivers when CI is green, on the same endpoints Luis uses, with a Bearer token.
 
 Acceptance criteria:
 
-- Owner or Member mints a generic **API token** for a user/membership, with a role at or below the minter. Member cannot mint Owner. Bound to one organisation and one or more projects they can write. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
-- Bearer token. Humans can also use a session cookie. Same `/api/v1` handlers, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. There is no `/agents` endpoint. There is no agent token. There is no `unstart` verb.
-- Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`).
+- List / create / revoke on the **user**: `GET|POST|DELETE /api/v1/users/:id/tokens`. Each user manages their own tokens (account settings, not an organisation or project screen). Owner or Member creates a generic **API token** with a role at or below their own on projects they belong to. Member cannot mint Owner. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
+- Bearer token. Humans can also use a session cookie. Same `/api/v1` handlers, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. There is no org-level mint path. There is no `unstart` verb.
+- Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`). A Viewer may still create a token on their own user; it can only read.
 - Member-bound token **can** accept a delivered Feature (and reject with a reason). Same as a Member with a cookie.
 - Start on unestimated Feature → `unestimated`, no state change (shared machine rule).
 - Illegal transition → `invalid_transition` with `from` and `action`.
 - Icebox Start of an estimated Feature lands `started` in Current — shared Member rule.
-- Revoked token → `unauthorized`. Viewer cannot create tokens.
-- Webhooks, if registered, are a product feature for any Member/Owner client. Events include story created/updated/reordered, story started/finished/delivered/accepted/rejected/restarted, comment created, iteration completed, membership changed. Signed outbound POST; delivery is not a command.
+- Revoked token → `unauthorized`.
+- Activity is attributed to the **user** the token belongs to. Token name may appear as `via {token name}`.
+- Webhooks, if registered, are a product feature for any Member/Owner client. Events include story created/updated/reordered, story started/finished/delivered/accepted/rejected/restarted, comment created, window completed, membership changed. Signed outbound POST; delivery is not a command.
 
 ### Slice 24 — Member saves a search and opens My Work
 
@@ -557,10 +563,10 @@ Acceptance criteria:
 
 ### Slice 30 — Owner turns off automatic planning for Current
 
-**Why independently acceptable:** Owner can stop auto-fill for Current without changing how future iterations plan.
+**Why independently acceptable:** Owner can stop auto-fill for Current without changing how future bands plan.
 
-- Escape hatch, Current **only**. Future iterations stay auto-planned (Tracker).
-- Manual Current: only in-progress, accepted-this-iteration, and stories explicitly moved there (drag Backlog → Current, or **C** on a focused unstarted Backlog story). Icebox → Current is still illegal. No velocity fill into Current.
+- Escape hatch, Current **only**. Future bands stay auto-planned.
+- Manual Current: only in-progress, accepted-this-window, and stories explicitly moved there (drag Backlog → Current, or **C** on a focused unstarted Backlog story). Icebox → Current is still illegal. No velocity fill into Current.
 - Default remains automatic. A control to restore auto-plan replans Current from velocity.
 - Not MVP.
 
@@ -572,7 +578,7 @@ Acceptance criteria:
 | --- | --- |
 | **Reviewer** | Always. Spec is not ready until they agree it is clear, vertical, and testable. |
 | **UI Designer** | Entire product is new UI. Manifesto + **locked** frontend guide. They write `ui.md` (including shortcuts). They do not invent bloom/stem/paper. |
-| **Technical Lead** | Stack, ports, and eight tables are constrained; approach is not. They write `technical-approach.md`: tenancy, machines, live updates, API tokens, planning recompute. |
+| **Technical Lead** | Stack, ports, and eight tables are constrained; approach is not. They write `technical-approach.md` and own `api/internal/domain/<domain>` plus the frontend domain split. Tenancy, machines, live updates, **user** API tokens (`/api/v1/users/:id/tokens`), `pack` as a pure function. |
 | **Developer** | One slice at a time. Documented PR. |
 | **QA** | Tests each slice from AC plus the companion rule docs. Can fail a slice without a meeting. |
 
@@ -581,6 +587,7 @@ A human merges. Do not implement before the Reviewer clears the spec.
 ## References
 
 - This brief and the locked Tracker copy-exactly list ([tracker-brief.md](./tracker-brief.md)).
+- Domain map (Technical Lead): [domain-model.md](./domain-model.md).
 - Classic Pivotal Tracker help: story states, types, velocity, backlog-to-current, icebox, releases, automatic vs manual planning.
 - [github.com/dmuso/flower](https://github.com/dmuso/flower) — `docs/product/overview.md` (to correct), `docs/reference/frontend-design-guide.md`, migration `000001`.
 - House rules: vertical slices, write-spec, review-spec, delivery workflow, UI manifesto (Pivotal / old Stripe / old Trello; refuse Jira and Monday).
