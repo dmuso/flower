@@ -4,7 +4,7 @@ Change name: `flower`
 
 Eventual path: `docs/core-workflow/ui.md` (see `docs/product/LANDING.md`).
 
-This is the implementation UI spec. It does not invent product rules or a visual identity. Look is locked in [`docs/reference/frontend-design-guide.md`](../reference/frontend-design-guide.md). Product rules are locked in [`docs/core-workflow/product-spec.md`](./product-spec.md), [`docs/product/tracker-brief.md`](../product/tracker-brief.md), and [`docs/velocity-planning/velocity-and-planning.md`](../velocity-planning/velocity-and-planning.md). If those files disagree with `docs/product/overview.md`, those files win.
+This is the implementation UI spec. Future-state only. Look is locked in [`docs/reference/frontend-design-guide.md`](../reference/frontend-design-guide.md). Product rules are locked in [`docs/core-workflow/product-spec.md`](./product-spec.md), [`docs/product/tracker-brief.md`](../product/tracker-brief.md), and [`docs/velocity-planning/velocity-and-planning.md`](../velocity-planning/velocity-and-planning.md).
 
 Spelling: UK / AU / NZ (`organisation`).
 
@@ -120,6 +120,8 @@ Left → right, always these names, this order:
 **Icebox · Backlog · Current · Done**
 
 They are four views of planning, not four stages of a card. A story does not “walk” Icebox → Backlog → Current → Done.
+
+The **board** in this file is that projection (stories into Icebox / Backlog / Current / Done). It is a view, not a domain. There is no board API.
 
 | Column | What it is | What it is not |
 | --- | --- | --- |
@@ -316,7 +318,7 @@ Flower fills what it can. The human types what only a human knows.
 | Story title | — | Title (required, max 500) |
 | Description | Empty | Only if they have a brief |
 | State on create | `unscheduled` in Icebox (default add) | — |
-| Requester | Creating human | Change later to another human Member/Owner |
+| Requester | Creating user | Change later to another Member/Owner |
 | Owners | Start assigns the clicker | Add / remove others, max 5 |
 | Follow | Requester + owners, cannot unfollow | Others may follow |
 | Estimate | Unestimated. `0` is a value only if they pick it | 0 / 1 / 2 / 3 on a Feature before Start |
@@ -324,7 +326,7 @@ Flower fills what it can. The human types what only a human knows.
 | Current membership | Auto-plan up to V, leave short | Start (may overflow). No drag-to-Current |
 | Velocity | Initial 10, then rolling average | Owner may set initial V and strategy 1–4 in settings |
 | Iteration length | **Days** (default 7) | Owner may set length in days. Not a stored list. |
-| Timezone | Store; default `Australia/Melbourne` until the fork is resolved | Owner setting, not a signup field |
+| Timezone | Store; default `Australia/Melbourne` | Owner setting, not a signup field |
 | Icebox vs Backlog on create | Icebox | Pull to Backlog, or add-in-Backlog as a quieter column action |
 | New Icebox position | Top (most recently captured) | Reorder if they care |
 | New scheduled position | Bottom of the ranked list | Reorder if they care |
@@ -361,7 +363,7 @@ From classic Tracker help. Same letters. Same jobs, mapped onto Flower panels.
 | `Shift+C` | Toggle Current | Toggle **Current** column |
 | `Shift+D` | Toggle Done | Toggle **Done** column. Not “story is done”. |
 | `Shift+E` | Toggle Epics panel | Toggle **Epics** (slice 19). Until then the chord is reserved — do not reuse. |
-| `Shift+H` | Toggle Project History | Reserved for project history. No such panel is in a named slice. **Open question** (does not unblock Phase 0). Until then, do not bind it to something else. |
+| `Shift+H` | Toggle Project History | Reserved. No project history panel. Do not bind it. |
 | `Shift+I` | Toggle Icebox | Toggle **Icebox** column |
 | `Shift+L` | Toggle Labels | Focus / toggle the **label filter** (slice 11). Reserved until then. |
 | `Shift+W` | Toggle My Work | Toggle **My Work** (slice 24). Reserved until then. |
@@ -996,7 +998,7 @@ Reveal (Tracker steal): a quieter control to scroll the story into its column. Y
 
 ### Slice 23 — API token
 
-Generic API tokens, minted on the **user** (`/users/:id/tokens`). Same API as the frontend. Same Owner / Member / Viewer permissions. A Member token can accept. No special token type. No scope checklist. Not an org or project settings screen.
+Generic API tokens, minted on the **user** (`/users/:id/tokens`). Same API as the frontend. Same Owner / Member / Viewer permissions. A Member token can accept. No special token type. No scope checklist.
 
 **Screen:** `TokenForm` on the **account** (user settings). Each user manages their own tokens.
 
@@ -1013,7 +1015,7 @@ Generic API tokens, minted on the **user** (`/users/:id/tokens`). Same API as th
 | Copied | `Copied. Store it with the token.` | Done |
 | Revoke | `Revoke this token? It will stop working now.` | `Revoke` |
 
-Activity **user** is the person the token belongs to. Token name may appear in the summary as `via {token name}`. Not a distinct identity. Always say **user**, never actor.
+Activity **user** is the person the token belongs to. Token name may appear in the summary as `via {token name}`. Not a distinct identity. Always say **user**.
 
 ---
 
@@ -1182,7 +1184,7 @@ The requester is not a special ACL. Copy may say `You requested this` on My Work
 
 **Accept is team-wide, requester should.** The UI does not nag Luis off the Accept button (no Typeform “are you the requester?”). My Work puts Maya’s Delivered at her fingertips. Undo fixes a polite mistake.
 
-**Computed bands vs a stored iteration list.** Dan: there is no iteration object. Length is a number of days. Current / Backlog headers are live bands from velocity + estimates. Done is a flat aged-out list, not rows grouped by “iteration 3”. If `velocity-and-planning.md` still describes an `iterations` table or 1–4 weeks, this file wins until that doc is updated.
+**Computed bands.** There is no iteration object. Length is a number of days. Current / Backlog headers are live bands from velocity + estimates. Done is a flat aged-out list.
 
 **Optimistic verbs vs “wait is a bug”.** The row updates before the server. Failure copy snaps back. Do not put a spinner on Start.
 
@@ -1208,26 +1210,11 @@ Do not reopen these. Product Owner accepted them. They live in `docs/product/ope
 10. Epic visual: no new purple hex. Epic pill is Bloom-bordered.
 11. Slice 30 manual Current: drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current stays illegal.
 
-Not blockers (assumed, already applied): Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; no `planned` state until slice 30 (and that slice’s `planned` vs flag is a product fork, not a palette); project TZ stored, default `Australia/Melbourne`, not asked at signup; API tokens are generic (same API, same roles; a Member token can accept).
+Also law: Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; `planned` only if slice 30 needs it; project TZ stored, default `Australia/Melbourne`, not asked at signup; API tokens are generic (same API, same roles; a Member token can accept).
 
 ---
 
-## 13. Product-spec / overview collisions this file will not paper over
-
-`docs/product/overview.md` is the right shape and the wrong detail. LANDING requires it be corrected in the same PR as these specs. This UI spec follows **product-spec + tracker-brief + velocity**, not the old overview:
-
-| Old overview / root README | What the UI does |
-| --- | --- |
-| `rejected` listed as a peer end-state | Rejected is mid-flight. StateButton is **Restart**. Stays in Current. |
-| “The requester accepted the work” as the rule | **Any Member or Owner** sees Accept. Requester *should*. |
-| Icebox as a sequential stage (“move through icebox, backlog, current, done”) | Icebox is a holding pen. Pull / Icebox verbs. No drag-to-Done. |
-| One linear machine for all types | Four machines. Chore/Release Finish **is** accept. No Reject on those. |
-
-No other product-spec contradictions required a side-pick. Locked rules (Icebox, machines, Restart, any Member accepts, unstarted-below-started, leave Current short, Start may overflow, column board) are implemented as written.
-
----
-
-## 14. QA glance (UI)
+## 13. QA glance (UI)
 
 A reviewer can fail a build from this list without a meeting.
 

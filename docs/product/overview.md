@@ -47,18 +47,19 @@ The HTTP API is the same for the app and for tokens. Humans use a session cookie
 
 ## What the core schema covers
 
-The first migration creates:
+Core tables:
 
 - `users`
 - `projects`
 - `project_memberships`
-- `iterations` (leftover — not the planning model)
 - `stories`
 - `labels`
 - `story_labels`
 - `activities`
 
-Business rules (allowed state transitions, who can accept a story, how ranking and `pack` work) belong in `api/internal/domain/<domain>`, not in the database. See [domain-model.md](../core-workflow/domain-model.md). Existing `iterations` / `stories.iteration_id` are leftover; stop using them as the plan. Length is **days** on the project.
+Planning is a calculation. There is no `iterations` table. Stories are not assigned to a window. Length is **`iteration_length_days`** on the project. Accepted-points history lives in `velocity_samples`. `activities.user_id` is the user who did the thing.
+
+Business rules (allowed state transitions, who can accept a story, how ranking and `pack` work) belong in `api/internal/domain/<domain>`, not in the database. See [domain-model.md](../core-workflow/domain-model.md).
 
 ## Spec set
 

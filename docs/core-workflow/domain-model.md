@@ -6,13 +6,13 @@ Local draft: `/workspace/flower-spec/domain-model.md`
 
 Change name: `flower`
 
-Implementer map: what each domain owns and what it must not own. Slice order stays in `product-spec.md`. Packing **math** stays in `velocity-and-planning.md`. Directory shape stays in `STRUCTURE-FROM-LAYOUT.md` and `technical-approach.md`.
+Implementer map: what each domain owns and what it must not own. Slice order stays in `product-spec.md`. Packing math stays in `velocity-and-planning.md`. Directory shape stays in `STRUCTURE-FROM-LAYOUT.md` and `technical-approach.md`.
 
 One domain package = one bounded context = one vertical slice of HTTP + service + persistence. Entity types live in that domain (`types.go`). The repository interface lives next to its postgres implementation. Domains do not import each other; shared contracts go in `ports/`. `platform/` never contains story, planning, or tenancy rules. `app/` wires lifecycle. `handlers/` registers routes. There is no `internal/wire/` package.
 
 Frontend: HTTP in `lib/api/<resource>.ts`. Thick-slice rules in `features/<slice>/domain/`. Screens in `pages/`.
 
-Always **user**. Never “actor” as a type. Leftover column `activities.actor_id` stores a user id.
+Always **user**. `activities.user_id` is the user (session or the user a token authenticates as). A token is a user credential, not an identity type. Planning / velocity is a **calculation**, not a time-box aggregate. There is no iteration table and no story-to-window foreign key.
 
 ---
 
@@ -20,7 +20,7 @@ Always **user**. Never “actor” as a type. Leftover column `activities.actor_
 
 **Owns:** the `users` row, signup / login / magic link / email verify, server-side sessions, **API tokens** (`POST/GET/revoke /api/v1/users/:id/tokens`).
 
-**Invariants:** a token is a credential of a user, not an identity type. Bearer authenticates as that user. Role comes from project memberships (or a grant ≤ minter). Member cannot mint Owner. Viewer cannot mint. Session login is password or magic link; a token is not a login identity.
+**Invariants:** a token authenticates as `api_tokens.user_id`. It is not a login identity. Role is that user’s project memberships (or an optional cap ≤ minter). Member cannot mint Owner. Viewer cannot mint. No organisation-collection token API.
 
 **Must not own:** organisations, stories, planning, webhooks.
 
@@ -40,53 +40,58 @@ Always **user**. Never “actor” as a type. Leftover column `activities.actor_
 
 **Owns:** `projects`, `project_memberships`, invites, project settings (`timezone`, `velocity_strategy`, `initial_velocity`, `iteration_start_weekday`, **`iteration_length_days`**, point scale, slug unique per organisation).
 
-**Invariants:** a project belongs to one organisation. Effective role = org owner or membership row. Owner / Member / Viewer is the whole permission model.
+**Invariants:** a project belongs to one organisation. Effective role = org owner or membership row. Owner / Member / Viewer is the whole permission model. The only stored window length is a positive integer of **days** (default 7).
 
-**Must not own:** story state machine, rank algorithm, velocity formula, iteration rows (there are none).
-
----
-
-## board
-
-**Owns:** the board read model (Icebox / Backlog / Current / Done payload). Calls planning to attach bands and V. Calls story for ordered lists.
-
-**Invariants:** the SPA renders this payload. The client does not pack.
-
-**Must not own:** persistence of “which iteration a story is in.” That field does not exist in the model.
+**Must not own:** story state machine, rank algorithm, velocity formula, a time-box entity.
 
 ---
+
 
 ## story
 
-**Owns:** `stories` (except leftover `iteration_id`), labels / story_labels, owners, followers, type-specific **machine**, **rank** (`rank` + `rank_list`), estimate, revision, `started_at`, `accepted_at`. HTTP: create, patch fields, transitions, reorder.
+**Owns:** `stories`, labels / story_labels, owners, followers, type-specific **machine**, **rank** (`rank` + `rank_list`), estimate, revision, `started_at`, `accepted_at`. HTTP: create, patch fields, transitions, reorder.
 
-**Invariants:** Feature start requires estimate (`0` allowed). Icebox Start is `unscheduled` → `started`. No `unstart`. `PATCH` does not write `state`. Member/Owner may accept/reject. Rank is `VARCHAR(64)` fractional. Icebox and ranked lists are independent.
+**Invariants:** Feature start requires estimate (`0` allowed). Icebox Start is `unscheduled` → `started`. No `unstart`. `PATCH` does not write `state`. Member/Owner may accept/reject. Rank is `VARCHAR(64)` fractional. Icebox and ranked lists are independent. Unique `(project_id, rank_list, rank)`. Stories do not store which window or band they are in.
 
-**Must not own:** velocity math, window close, organisation tenancy, tokens. **Must not** persist a story → iteration link.
-
-Leftover: `stories.iteration_id` in 000001. Stop writing it. Do not read it as planning truth.
+**Must not own:** velocity math, window end, organisation tenancy, tokens. Must not persist a story → window link. Must not FK stories to `velocity_samples`.
 
 ---
 
 ## planning
 
-**Owns:** the pack function, velocity formula, window-close writer for `velocity_samples`, board dates.
+**Owns:** the pack function, velocity formula, window-end writer for `velocity_samples`, computed window dates.
 
-**Invariants:** planning / velocity is a **calculation, not an Iteration aggregate**. There is no Iteration entity and no `iterations` table in the model. The only length setting is project `iteration_length_days`. Bands (`current` / `next` / `later`) are recomputed whenever velocity, order, or estimates change. Stories do not point at samples.
+**Invariants:** planning / velocity is a **calculation, not an Iteration aggregate**. There is no Iteration entity. The only length setting is project `iteration_length_days`. Bands (`current` / `next` / `later`) are recomputed whenever velocity, order, or estimates change. Stories do not point at samples.
 
-`velocity_samples` (starts_on, ends_on, accepted_feature_points) is an input to V, written at window close. It is not an Iteration. It is not a home for stories.
+```
+velocity_samples
+  project_id
+  organisation_id
+  starts_on DATE
+  ends_on DATE
+  accepted_feature_points INTEGER
+  UNIQUE (project_id, starts_on)
+```
+
+Written at window end. Pack never assigns a story to a sample row. Done is a flat list of accepted stories whose `accepted_at` has aged past the current window (newest accepted first).
 
 **Must not own:** story machine, rank, HTTP for transitions, token mint.
-
-Leftover: 000001 `iterations` table. Stop inserting. Migrate away; do not treat it as this domain.
 
 ---
 
 ## activity
 
-**Owns:** `activities` rows (kind, summary, leftover `actor_id` = user, story_id). Undo reads the latest state-changing row (slice 15).
+**Owns:** `activities` (`kind`, `summary`, `user_id`, `story_id`). Undo reads the latest state-changing row (slice 15).
 
 **Must not own:** permission checks (those are project effective role).
+
+---
+
+## tenancy (organisation + project)
+
+**Owns:** effective role, 404-vs-403, “does this user belong to this organisation / project?”
+
+**Hard boundaries:** cross-tenant id → `not_found`. Same-tenant insufficient role → `forbidden`. Cookie vs Bearer is the only auth difference after the user is resolved.
 
 ---
 
@@ -98,15 +103,29 @@ Leftover: 000001 `iterations` table. Stop inserting. Migrate away; do not treat 
 | attachment | Files + auth GET | Not a public URL |
 | webhook | Outbound project hooks | Delivery is not a command |
 | search | Operators | Does not change rank |
-| chart | Completed bars | Read-only |
+| chart | Completed bars from `velocity_samples` | Read-only |
 
 ---
 
-## Hard boundaries (repeat)
+## What is not a domain
 
-1. **Iterations are not a domain and not a table.** Packing does not write iteration rows or `stories.iteration_id`.
-2. **A token is not a user type.** It belongs to a user (`/api/v1/users/:id/tokens`).
-3. **Organisation is the tenant.** Project belongs to one organisation.
-4. **Story does not store which window it is in.** The board calculates current / next / later.
-5. **Domains do not import each other.** Cross-domain contracts live in `ports/`.
-6. **HTTP for a domain lives in that domain’s `handler.go`.** `handlers/` only registers routes.
+| Not a domain | Why |
+| --- | --- |
+| Iteration / time-box table | Planning is a calculation. Bands + `velocity_samples` + `iteration_length_days`. |
+| Board | A **frontend projection**. The API returns stories plus pack fields (V, bands, dates). The SPA draws Icebox / Backlog / Current / Done. No `board` domain package. No `/board` API. |
+| API token as an identity type | Token is a user credential on `user`. |
+| `app/` use-case packages | `app/` is lifecycle + wiring only. |
+| `api/internal/wire/` | Does not exist. Do not invent it. |
+| A single frontend client file | HTTP is `lib/api/<resource>.ts`. |
+
+---
+
+## Dependency direction
+
+```
+domain/ ──────► ports/ ◄────── platform/
+    │                              │
+    └──────────► types/ ◄──────────┘
+```
+
+`app/` wires implementations into ports and starts the process. `handlers/` mounts each domain’s `handler.go` on `/api/v1`.

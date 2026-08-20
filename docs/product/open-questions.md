@@ -1,18 +1,18 @@
 # Open questions
 
-Only **true forks** — things we cannot assume. Everything else is decided. If it is in the assumption list, implementers treat it as law until Dan strikes it.
+Only **true forks** — things we cannot assume. Everything else is decided. If it is in the assumption list, implementers treat it as law.
 
 ## True forks
 
 1. **~~User API tokens.~~ Locked.** Not a fork. Tokens are **user-scoped**: list / create / revoke at `/api/v1/users/:id/tokens`. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Owner / Member / Viewer is the whole model. Not org-level. See Decisions locked.
-2. **~~Dynamic windows.~~ Locked.** Not a fork. Iterations are not a domain. There is no iteration row as the plan, no `stories.iteration_id` assignment, no planner that creates window rows. Stored setting: **length in days** on the project (default 7). UI draws Current + future bands from `pack`. See [velocity-and-planning.md](./velocity-and-planning.md).
+2. **~~Dynamic windows.~~ Locked.** Not a fork. Iterations are not a domain. Planning is a calculation. There is no iteration row as the plan and no story-to-window assignment. Stored setting: **length in days** (`iteration_length_days`) on the project (default 7). UI draws Current + future bands from `pack`. See [velocity-and-planning.md](./velocity-and-planning.md).
 3. **Organisation slug and URL.** We assume a human-facing organisation name plus whatever URL the Technical Lead needs. Fork: public slug uniqueness vs per-user uniqueness.
 4. **Project timezone source.** Window end is midnight in the project timezone. Fork: store an explicit project TZ (recommended) vs infer from the creating owner and never show a setting in MVP.
 5. **Icebox order vs backlog order.** Tracker Icebox is its own ordered list, not interleaved with Backlog. We assume that. Fork: one global rank including Icebox (filter by state) vs two ranks.
 6. **Who creates projects after slice 0.** We assume only organisation owners. Fork: any Member of the org.
 7. **CSV export by Members.** We assume **Owners only** for import and export. Fork: Members may export.
 8. **Cycle-time clock on reject.** We assume first `started` → `accepted`, and reject does not reset the clock. Fork: clock from the *last* Restart.
-9. **`planned` as a story state vs a panel flag (slice 30).** Tracker adds `planned` when Current is manually planned. Manual planning is a later slice. Fork: introduce `planned` as a story state vs keep `unstarted` and a panel flag only. **Struck:** any fork that ties `planned` to an iteration row. There are no iteration rows. `planned` (if introduced) is not an assignment to a window record.
+9. **`planned` as a story state vs a panel flag (slice 30).** Tracker adds `planned` when Current is manually planned. Manual planning is a later slice. Fork: introduce `planned` as a story state vs keep `unstarted` and a panel flag only. `planned` (if introduced) is not an assignment to a window record. There are no iteration rows.
 10. **Workspaces shared or personal.** We assume personal (per account) in one organisation. Fork: shared team workspaces.
 
 If Dan does not answer, the “we assume” side ships.
@@ -49,9 +49,9 @@ If Dan does not answer, the “we assume” side ships.
 
 ### Planning (locked)
 
-- Length is **days** (default 7), stored on the project. Not 1–4 weeks. Not a stored list of windows.
+- Length is **days** (default 7), stored on the project as `iteration_length_days`. Not 1–4 weeks. Not a stored list of windows.
 - `pack` is a pure function of (ordered stories, velocity, length in days, now, timezone). Stories are not assigned to a window row.
-- Existing `000001` `iterations` table and `stories.iteration_id` are leftover. Stop using them as the plan.
+- There is no `iterations` table. Accepted-points history lives in `velocity_samples`.
 - Accepted stays in Current until the current window ends (midnight at `starts_on + L days`, project TZ). Done is a flat aged-accepted list.
 
 ### Scope
@@ -61,13 +61,13 @@ If Dan does not answer, the “we assume” side ships.
 - No Gantt, no workflow engine, no resource management.
 - Icebox in MVP (own slice). Workspaces Phase 3.
 
-### Existing Flower ground
+### Constraints
 
 - UK / AU / NZ spelling (`organisations`).
 - Look locked to `docs/reference/frontend-design-guide.md`.
 - Ports: API 8180, frontend 4273, Postgres 5433/5437.
-- Eight core tables exist; `iterations` is leftover and is not the planning model. We add, we do not redesign.
-- `stories.rank` stays a string. Title max 500.
+- Core tables: `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. Schema must match this model. Planning is a calculation — no `iterations` table.
+- `stories.rank` is a string. Title max 500.
 - Business rules in `api/internal/domain/<domain>`, not the database. Frontend is split by domain. See [domain-model.md](./domain-model.md).
 
 ### Tenancy and roles

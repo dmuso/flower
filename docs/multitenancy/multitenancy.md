@@ -8,9 +8,9 @@ This file is the tenancy product. The Technical Lead designs how it is enforced.
 
 Spelling: **organisation**, not organization. Use that in new tables, fields, and docs.
 
-## Existing ground
+## Schema
 
-`000001` has `users`, `projects`, `project_memberships` — **no organisations table**, no `projects.organisation_id`. That is a gap, not a licence to skip tenancy. Slice 0 **adds** organisations and attaches projects to them. Do not redesign the eight core tables to get there.
+`users`, `projects`, `project_memberships`, and `organisations`. Every project has `organisation_id`. Slice 0 ships organisations and attaches projects to them.
 
 `project_memberships.role` is a string. Product values: `owner`, `member`, `viewer` only.
 
@@ -29,7 +29,7 @@ Account (human login)
 
 A person. Email unique. Authenticates with email + password and/or magic link in MVP. SSO later.
 
-`users.username` is `NOT NULL` today — see [open-questions.md](./open-questions.md). One email, one account. An account can belong to many organisations. An account is not a tenant. Data is always organisation → project → story.
+`users.username` is `NOT NULL UNIQUE` — see [open-questions.md](./open-questions.md). One email, one account. An account can belong to many organisations. An account is not a tenant. Data is always organisation → project → story.
 
 Deleting an account (no slice yet) must not delete an organisation that still has another owner.
 
@@ -47,7 +47,7 @@ One ranked list, one Icebox, one velocity, one board. Lives in exactly one organ
 
 Creating a project: **organisation owner** only in MVP. Creator is a project owner.
 
-Existing columns stay: `name`, `slug`, `description`, `point_scale`, leftover weeks-named length. Product length is **days** (default 7) on the project. Add (without rewriting): `organisation_id`, and later timezone, velocity strategy, initial velocity, bugs-and-chores-estimable. `slug` is unique today **globally**; under tenancy it should be unique **per organisation**. Technical Lead migrates that carefully; do not invent a new slug scheme in this spec.
+Project columns include `name`, `slug`, `description`, `point_scale`, **`iteration_length_days`** (default 7), and `organisation_id`. Timezone, velocity strategy, initial velocity, and bugs-and-chores-estimable land with their slices. `slug` is unique **per organisation**. Do not invent a new slug scheme in this spec.
 
 ### Project membership and roles
 
@@ -59,7 +59,7 @@ Exactly one role per membership:
 | **member** | Build. Create/edit/estimate/reorder/icebox, all legal verbs including **accept and reject**, tasks, labels, comments, attachments, own tokens, saved searches, My Work. Cannot invite. Cannot change roles. Cannot change length / scale settings. Cannot import/export. |
 | **viewer** | Read. Board, stories, activity, charts, search, Icebox, images. Nothing that mutates. Cannot accept. May create a token on their own user; it can only read. |
 
-**Any Member can accept.** Requester *should*. My Work surfaces the requester’s Delivered stories. There is no accept ACL among Members and Owners. History is undo. This supersedes `docs/product/overview.md` (“the requester accepted the work”) as a hard rule.
+**Any Member can accept.** Requester *should*. My Work surfaces the requester’s Delivered stories. There is no accept ACL among Members and Owners. History is undo.
 
 **Organisation owner** can do anything a project owner can on every project in the organisation, even without a membership row.
 

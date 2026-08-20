@@ -35,7 +35,7 @@ Tracker got these wrong, or the world changed. We are explicit.
 
 | Tracker | Flower |
 | --- | --- |
-| Persisted iteration records as the plan; stories assigned to an iteration | **Computed windows only.** Length in days (default 7) on the project. `pack` is a pure function. No iteration row, no story→window assignment. Existing `000001` `iterations` / `iteration_id` are leftover. |
+| Persisted iteration records as the plan; stories assigned to an iteration | **Computed windows only.** Length in days (default 7) on the project. `pack` is a pure function. No iteration row, no story→window assignment. |
 | API token acts as the human who minted it | **User API tokens** (Bearer) at `/api/v1/users/:id/tokens`. Same `/api/v1` as the app (cookie or Bearer, same handlers). Role at or below the user’s own (Member cannot mint Owner). No extra scopes. Activity is the **user**. |
 | “Bugs and chores may be estimated” could not be turned off | Same toggle is later, and it is **reversible**. |
 | Custom point scale could not be reverted | Custom scale is later and **must be revertible**. Fibonacci (`0,1,2,3,5,8`) and Powers of 2 (`0,1,2,4,8`) are later project settings. |
@@ -60,6 +60,6 @@ Tracker got these wrong, or the world changed. We are explicit.
 - Persisting Tracker-style iteration records as the plan.
 - Org-level token mint paths.
 
-## Existing Flower docs this brief supersedes
+## Overview
 
-`docs/product/overview.md` today lists `rejected` as a peer end-state and is thin on type-specific machines. Root `README.md` frames Icebox as a sequential stage (“stories move through icebox, backlog, current, done”). Both are wrong versus Tracker. [LANDING.md](./LANDING.md) requires the overview to be updated in the same PR as these specs.
+The one-page intent is `docs/product/overview.md`. It must match this brief. See [LANDING.md](./LANDING.md).

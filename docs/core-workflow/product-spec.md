@@ -28,7 +28,7 @@ What better looks like:
 
 A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs the ranked list into Current and future visual bands from velocity. A second person sees the move without refresh. A Member or Owner mints a **user API token** (`/api/v1/users/:id/tokens`) and a client (CI, a script, Grove) calls the same story API as the frontend.
 
-The existing `docs/product/overview.md` is the right shape and the wrong detail (`rejected` as a peer end-state). This spec supersedes those mistakes. LANDING requires the overview to be corrected in the same PR.
+Keep `docs/product/overview.md` as the one-page intent and make it match this spec set (see [LANDING.md](./LANDING.md)).
 
 ## Personas
 
@@ -81,7 +81,7 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 - Team strength % (later). Manual planning of Current (later, Phase 3).
 - A new visual identity.
 
-## Assumptions (law until Dan corrects [open-questions.md](./open-questions.md))
+## Assumptions (law; see [open-questions.md](./open-questions.md))
 
 See also [tracker-brief.md](./tracker-brief.md). Short form:
 
@@ -96,7 +96,7 @@ See also [tracker-brief.md](./tracker-brief.md). Short form:
 - CSV Phase 3. No custom fields ever.
 - Initial velocity 10. Feature points only.
 - Owners max 5. Start assigns the clicker.
-- Existing eight tables are ground. Ports 8180 / 4273 / 5433 / 5437.
+- Ports 8180 / 4273 / 5433 / 5437. Schema must match this model.
 
 ## Tech stack (constraints)
 
@@ -145,13 +145,15 @@ No estimate. Optional **target date** (a comparison, not a plan override). Place
 - **Owners:** 0–5 project Members or Owners. Start assigns the clicker.
 - **Follow:** requester and owners auto-follow and **cannot unfollow**. Others may follow (Member/Owner). Viewers do not follow.
 
-## Existing schema (ground)
+## Schema
 
-Already there: `users`, `projects`, `project_memberships`, `iterations`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `accepted_at`), `labels`, `story_labels`, `activities`.
+Schema must match this model.
 
-`iterations` and `stories.iteration_id` are leftover. Product does not persist iteration records as the plan and does not assign stories to a window row. Length is **days** on the project (existing `iteration_length_weeks` is leftover naming). `activities` attributes a change to a `users` row (000001 column name is leftover); product language is **user**.
+Core: `users`, `projects`, `project_memberships`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `accepted_at`), `labels`, `story_labels`, `activities` (`user_id` = the user who did the thing).
 
-Not there: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens. Slices that need them add tables. Do not redesign the eight, and do not pretend 000001 is the planning model.
+Planning is a calculation. There is no `iterations` table. Length is **`iteration_length_days`** on the project (default 7). Accepted-points history lives in `velocity_samples`. Product language is **user**.
+
+Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens.
 
 ## Ordered vertical slices
 
@@ -288,7 +290,7 @@ Acceptance criteria:
 - Length default **7 days**. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. Not a stored iteration list.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
 - An estimated Feature with cost > V auto-fills only into a band with 0 Feature-points and marks that band over velocity; it never sits unpacked.
-- Fail the slice if the planner writes `iterations` rows or `stories.iteration_id`, or if Current is “iteration 3”.
+- Fail the slice if the planner persists window rows or assigns a story to a window, or if Current is labelled “iteration 3”.
 
 Phase 0 is not done without slice 8.
 
@@ -334,7 +336,7 @@ Acceptance criteria:
 - Filter by label hides non-matching stories in all columns. Does not change rank or state.
 - Creating a label on a story creates it for the project. Owner can delete an unused project label.
 - Viewer can filter, cannot add.
-- Epic-as-purple-label is Phase 2; this slice is ordinary labels. Existing `labels` / `story_labels` tables are the ground.
+- Epic-as-purple-label is Phase 2; this slice is ordinary labels. `labels` / `story_labels` are the tables.
 
 ### Slice 12 — Member assigns owners, requester, and followers
 
@@ -391,7 +393,7 @@ Acceptance criteria:
 - **Undo** on the latest state-changing activity restores the previous state (Accept → Delivered, Reject → Delivered, Start → Unstarted, Icebox Start → Unscheduled, Restart → Rejected, Finish → Started, Deliver → Finished). Undo is itself an activity.
 - You cannot undo a non-state event (a comment) with this control.
 - Viewer can read activity, cannot undo.
-- Existing `activities` table is the ground (`kind`, `summary`, user id). Product language is **user**.
+- `activities` records `kind`, `summary`, and `user_id`. Product language is **user**.
 
 ### Slice 16 — Member runs the board from the keyboard
 
@@ -459,7 +461,7 @@ Acceptance criteria:
 - Icebox and (if ever unpacked) stories with no band: no date — “Not scheduled.”
 - Release date = end date of the **computed window that contains the marker** (the marker sits at the end of its stories, so that window is when the last story above it packed). Target date optional; marker is blue or red versus that window’s **start**. **No date picker that sets the plan.** Target date is the only date the user types, and it does not move stories.
 - Reorder / estimate / accept / velocity / length change updates dates and colours live.
-- Fail the slice if a projection is read from an iteration row or `stories.iteration_id`.
+- Fail the slice if a projection is read from a stored window row or a story-to-window assignment.
 
 ### Slice 21 — Member reads the velocity chart and burn-up
 
@@ -578,7 +580,7 @@ Acceptance criteria:
 | --- | --- |
 | **Reviewer** | Always. Spec is not ready until they agree it is clear, vertical, and testable. |
 | **UI Designer** | Entire product is new UI. Manifesto + **locked** frontend guide. They write `ui.md` (including shortcuts). They do not invent bloom/stem/paper. |
-| **Technical Lead** | Stack, ports, and eight tables are constrained; approach is not. They write `technical-approach.md` and own `api/internal/domain/<domain>` plus the frontend domain split. Tenancy, machines, live updates, **user** API tokens (`/api/v1/users/:id/tokens`), `pack` as a pure function. |
+| **Technical Lead** | Stack, ports, and the core schema are constrained; approach is not. They write `technical-approach.md` and own `api/internal/domain/<domain>` plus the frontend domain split. Tenancy, machines, live updates, **user** API tokens (`/api/v1/users/:id/tokens`), `pack` as a pure function. |
 | **Developer** | One slice at a time. Documented PR. |
 | **QA** | Tests each slice from AC plus the companion rule docs. Can fail a slice without a meeting. |
 
@@ -589,5 +591,5 @@ A human merges. Do not implement before the Reviewer clears the spec.
 - This brief and the locked Tracker copy-exactly list ([tracker-brief.md](./tracker-brief.md)).
 - Domain map (Technical Lead): [domain-model.md](./domain-model.md).
 - Classic Pivotal Tracker help: story states, types, velocity, backlog-to-current, icebox, releases, automatic vs manual planning.
-- [github.com/dmuso/flower](https://github.com/dmuso/flower) — `docs/product/overview.md` (to correct), `docs/reference/frontend-design-guide.md`, migration `000001`.
+- [github.com/dmuso/flower](https://github.com/dmuso/flower) — `docs/product/overview.md`, `docs/reference/frontend-design-guide.md`. Schema must match this model.
 - House rules: vertical slices, write-spec, review-spec, delivery workflow, UI manifesto (Pivotal / old Stripe / old Trello; refuse Jira and Monday).

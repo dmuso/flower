@@ -2,9 +2,9 @@
 
 Change name: `flower`
 
-This file is the planning product. If a slice, a mock, or an implementation disagrees with it, this file wins until Dan changes it.
+This file is the planning product. If a slice, a mock, or an implementation disagrees with it, this file wins.
 
-Flower copies Tracker's *idea* of velocity windows: one ranked list, pack toward velocity, leave a band short rather than overfill. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. There is no `iterations` row the planner writes. There is no `stories.iteration_id`. Existing `000001` tables `iterations` and `stories.iteration_id` are leftover — stop using them as the plan.
+Flower copies Tracker's *idea* of velocity windows: one ranked list, pack toward velocity, leave a band short rather than overfill. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. There is no `iterations` table. Stories are not assigned to a window. Project setting: `iteration_length_days`. Accepted-points history lives in `velocity_samples`.
 
 Deltas versus Tracker are only those listed in [tracker-brief.md](./tracker-brief.md) (initial-velocity behaviour is Tracker; team strength is *deferred*, not replaced with a fiction).
 
@@ -37,10 +37,8 @@ Pick is **calendar windows that end at midnight**, project timezone. Not “now 
   - `ends_at(i) = starts_on(i) + L days` at `00:00` project TZ (midnight at the start of the next window)
   - Last calendar day of the window = `ends_at(i) − 1 day`. Display as `Ends {that date}`.
 - **Current window** = the unique `i` where `starts_on(i) ≤ now < ends_at(i)` in project TZ.
-- When `now` crosses `ends_at` of the open window, that window is **completed**. Accepted work whose `accepted_at` fell in it ages into Done. Velocity recomputes. Unstarted leftovers are re-packed. In-flight stay in Current. Unaccepted work is not failed and not iceboxed.
-- Changing length / timezone / start weekday replans immediately. Completed windows stay historically addressable as date ranges (from the same function, or from a frozen velocity observation). They are not iteration rows and they do not assign stories.
-
-Existing `projects.iteration_length_weeks` is leftover naming. Product length is **days**.
+- When `now` crosses `ends_at` of the open window, that window is **completed**. Accepted work whose `accepted_at` fell in it ages into Done. Velocity recomputes. Remaining unstarted stories are re-packed. In-flight stay in Current. Unaccepted work is not failed and not iceboxed.
+- Changing length / timezone / start weekday replans immediately. Completed windows stay historically addressable as date ranges (from the same function, or from `velocity_samples`). They are not iteration rows and they do not assign stories.
 
 ## What counts toward velocity
 
@@ -61,7 +59,7 @@ Further:
 - Estimate at **accept** time is what is recorded. Edits after accept do not rewrite a completed window.
 - Rejected Features add nothing. If later accepted, they add to the window that contains that accept.
 - Accepted-this-window Features sit in Current and count toward **this** window’s running total; they enter the velocity average only when the window **completes**.
-- Deleting a Feature after a window completed does not rewrite that window’s total. Persist a small **velocity observation** (window start + accepted Feature points) if needed so history is stable. That observation is not an Iteration and does not assign stories.
+- Deleting a Feature after a window completed does not rewrite that window’s total. Persist **`velocity_samples`** (window start + accepted Feature points) so history is stable. Samples are not an Iteration and do not assign stories.
 - Team strength % is **not MVP**. Do not implement a hidden 100% strength. The MVP formula is a plain average of accepted Feature points per completed window, not Tracker’s normalised-per-week formula.
 
 ## Velocity formula (MVP)
@@ -96,7 +94,7 @@ Not empty, not fake.
 
 ## Packing is a pure function
 
-No Iteration entity. No write of `stories.iteration_id`. Stories stay on one ranked list. The UI draws bands from the function’s output.
+No Iteration entity. Stories stay on one ranked list. The UI draws bands from the function’s output.
 
 ```
 pack(
@@ -173,14 +171,14 @@ No Recalculate button. The board after a mutation is already right.
 
 At `ends_at` of the open window (midnight, project TZ):
 
-1. That window’s accepted Feature points become a stable observation (sum of Feature estimates accepted while it was current).
+1. That window’s accepted Feature points become a `velocity_samples` row (sum of Feature estimates accepted while it was current).
 2. It now participates in V.
 3. Recompute V.
 4. Every story accepted in that window **ages into Done** as a **flat** list (newest accepted first). No group-by-window chrome.
-5. In-flight and leftover unstarted Current stories remain; unstarted are re-packed (they are not sticky to “this window” unless still in-flight).
+5. In-flight and remaining unstarted Current stories remain; unstarted are re-packed (they are not sticky to “this window” unless still in-flight).
 6. Unaccepted work is not failed and not iceboxed.
 
-There is no “close the iteration” button. There is no stored row to close.
+There is no button to close a window. There is no stored row to close.
 
 ## Projected delivery date
 
@@ -207,7 +205,7 @@ Copy Tracker colour *idea*; compare against the **computed** window that contain
   - **Blue (on track):** `starts_on` of the **computed window that contains the marker** ≤ target date.
   - **Red (late):** that computed window’s `starts_on` **>** target date.
 - If the marker is in Icebox: no colour, or muted “unscheduled.”
-- No stories above the marker: still a marker; date/colour use the computed window it packed into (often Current leftover / empty pack). Copy may say “No stories above this release.”
+- No stories above the marker: still a marker; date/colour use the computed window it packed into (often Current with an empty pack). Copy may say “No stories above this release.”
 - Two releases: each marker owns the work **above it and below the previous marker**. Colour/date still use the computed window that **contains that marker**.
 
 ## Charts
@@ -323,7 +321,7 @@ They Accept Checkout on **2 Sep** (next window). Points land in the computed win
 
 ## What we will not do
 
-- Persist an Iteration as the plan. No `iterations` writes. No `stories.iteration_id`.
+- Persist an Iteration as the plan. There is no `iterations` table. Stories are not assigned to a window.
 - Typed velocity override (“pretend we do 20”) except the **initial velocity** setting, which stops mattering after N ≥ 1 (and the all-zero revert).
 - Drag-to-pin a story to a date. Start or reorder; do not staple to 6 Sep.
 - Split stories.

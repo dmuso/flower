@@ -12,7 +12,7 @@ Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How e
 2. **This file** — principles, constraints, index.
 3. **[product-spec.md](./product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
 4. **[domain-model.md](./domain-model.md)** — what each domain owns. Technical Lead owns the tree (`api/internal/domain/<domain>`; frontend split by domain).
-5. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model (`pack` as a pure function). If a slice disagrees with it, this file wins until Dan changes it.
+5. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model (`pack` as a pure function). If a slice disagrees with it, this file wins.
 6. **[multitenancy.md](./multitenancy.md)** — accounts, organisations, projects, roles, isolation.
 7. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
 8. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
@@ -21,7 +21,7 @@ Then, in the delivery workflow (do not skip):
 
 - **Reviewer** clears this spec set before anyone implements.
 - **UI Designer** writes UI notes for new UI. Look is locked: [docs/reference/frontend-design-guide.md](../flower-existing-docs/docs/reference/frontend-design-guide.md) (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board). Do not invent a new identity. Shortcut table lives in their `ui.md`.
-- **Technical Lead** writes `technical-approach.md` and owns [domain-model.md](./domain-model.md). Stack, ports, and the eight core tables are constraints.
+- **Technical Lead** writes `technical-approach.md` and owns [domain-model.md](./domain-model.md). Stack, ports, and the core schema are constraints.
 - **Developer** implements one slice at a time.
 - **QA** tests each slice from its acceptance criteria alone.
 
@@ -75,13 +75,13 @@ Treat as given. Do not redesign in this spec.
 | Shape | Monorepo, Nix Shell + Docker Compose + Make |
 | Tenancy | Multitenant from day one (organisations) |
 | Look | bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, column board — `docs/reference/frontend-design-guide.md` |
-| Schema already present | `users`, `projects`, `project_memberships`, `iterations` (leftover), `stories`, `labels`, `story_labels`, `activities` |
-| Not present yet | story owners, comments, tasks, attachments, epics, organisations, notifications |
+| Core schema | `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. `projects.iteration_length_days`. `activities.user_id`. No `iterations` table. |
+| Added by slices | organisations, story owners, comments, tasks, attachments, epics, `velocity_samples`, `api_tokens`, notifications |
 | Domain | `api/internal/domain/<domain>`; frontend split by domain — [domain-model.md](./domain-model.md) |
 | Spelling | UK / AU / NZ (`organisations`, not `organizations`) |
 | Migrations | Schema-only. No DB enums, triggers, or functions. Business rules in the Go domain packages. |
 
-Existing tables are **ground**, not a redesign brief. New slices add tables (owners, comments, tasks, …) and add `organisations` without rewriting the eight. `iterations` and `stories.iteration_id` are leftover — stop using them as the plan.
+Schema must match this model. Planning is a calculation: no `iterations` table. Accepted-points history lives in `velocity_samples`. New slices add tables (owners, comments, tasks, organisations, tokens) without inventing a second planning store.
 
 Architecture lives in `technical-approach.md` after the Reviewer clears this set.
 

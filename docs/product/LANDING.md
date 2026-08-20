@@ -4,11 +4,11 @@ Local drafts live under `/workspace/flower-spec/`. They are **not** the repo pat
 
 The repo already has `docs/product/` and `docs/reference/`. New planning docs go in **feature-named folders**. Product intent stays in `docs/product/`. Do **not** overwrite `docs/reference/*` or `docs/migrations*`.
 
-## Same-PR correction (required)
+## Same-PR overview
 
-Update **`docs/product/overview.md`** in the same PR that adds these specs. The current overview is incomplete and slightly wrong versus classic Tracker. This spec set **supersedes** it.
+Update **`docs/product/overview.md`** in the same PR that adds these specs so it matches this spec set. Keep overview as the one-page intent.
 
-The updated overview must say, in short form:
+The overview must say, in short form:
 
 - Icebox = `unscheduled` holding pen. You pull from it. It is not a sequential stage on the way to Done.
 - Feature / Bug / Chore / Release have **different** state machines (see [tracker-brief.md](./tracker-brief.md)).
@@ -19,9 +19,9 @@ The updated overview must say, in short form:
 - Tokens are **user-scoped** (`/api/v1/users/:id/tokens`).
 - Point the reader at the feature folders below for the exhaustive rules.
 
-Do not blindly overwrite overview with this whole spec. Keep overview as the one-page intent; make it **correct**.
+Do not blindly overwrite overview with this whole spec. Keep overview as the one-page intent; make it match the rules above.
 
-Optional, same PR if the line is still wrong: root `README.md` sentence “Stories move through icebox, backlog, current iteration, and done” should be rephrased so Icebox is a holding pen, not a pipeline stage. That is a one-line product fix, not a reference overwrite.
+Root `README.md` should describe Icebox as a holding pen, not a pipeline stage. That is a one-line product fix, not a reference overwrite.
 
 ## Path map
 
@@ -35,7 +35,7 @@ Optional, same PR if the line is still wrong: root `README.md` sentence “Stori
 | `multitenancy.md` | `docs/multitenancy/multitenancy.md` | Organisations, roles, isolation. |
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |
-| — | `docs/product/overview.md` | **Update in place** (correction above). |
+| — | `docs/product/overview.md` | **Update in place** (overview content above). |
 | `ui.md` | `docs/core-workflow/ui.md` | In this PR. UI Designer file. Must cite `docs/reference/frontend-design-guide.md`. No new palette. |
 | `technical-approach.md` | `docs/core-workflow/technical-approach.md` | In this PR. Technical Lead file. Plus per-feature approach notes if a slice needs them. |
 
@@ -47,23 +47,21 @@ Add links from `docs/README.md` to the new product and feature folders. Do not m
 - `docs/reference/technology-choices.md` and other `docs/reference/*`.
 - `docs/migrations.md`, `docs/migration-usage.md`, `api/internal/migrations/*` (except when a later implementation slice adds a **new** schema-only migration).
 
-## Existing schema (ground, not a redesign)
+## Schema (must match this model)
 
-Already in `000001_create_core_schema`:
+Core tables: `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`.
 
-`users`, `projects`, `project_memberships`, `iterations`, `stories`, `labels`, `story_labels`, `activities`.
+Planning is a calculation. There is no `iterations` table. Accepted-points history lives in `velocity_samples`. Project length is `iteration_length_days` (default 7).
 
-`iterations` and `stories.iteration_id` are leftover. Product does not persist iteration records as the plan. Do not treat 000001 as the planning model.
+Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
 
-Not present: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
-
-Technical Lead adds tables for slices that need them. They do not redesign the eight. Notable existing choices to keep:
+Notable choices:
 
 - `stories.rank VARCHAR(64)` — fractional / lexicographic rank. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500, not a tighter invented limit.
 - `story_type` and `state` are strings, not DB enums.
-- `activities` attributes each change to a `users` row (000001 column name is leftover). Product language is **user**. An API token authenticates as that user.
-- `projects` has `point_scale` and a leftover weeks-named length column. Product length is **days** (default 7). No organisation_id, no timezone, no velocity strategy, no bugs-and-chores-estimable flag yet.
+- `activities.user_id` attributes each change to a `users` row. Product language is **user**. An API token authenticates as that user.
+- `projects` has `point_scale` and `iteration_length_days` (default 7). Organisation, timezone, velocity strategy, and bugs-and-chores-estimable land with their slices.
 
 ## Ports (locked)
 
