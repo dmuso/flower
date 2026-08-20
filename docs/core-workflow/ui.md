@@ -332,7 +332,7 @@ Flower fills what it can. The human types what only a human knows.
 | Images | Clipboard paste → attachment + embed | File picker as quieter option |
 | Activity | Actor, time, from → to | — |
 | Reorders in activity | Do not log | — |
-| Agent `story_type` / requester | — | Agent must send both (API). Human UI still defaults Feature + self |
+| Agent token | Same API and defaults as the frontend. Bound to a project role. | Name, role, projects |
 | Token secret | Show once | They copy it now |
 | Search operators | Parse Tracker-like language | The query |
 | Saved search name | — | A name |
@@ -434,7 +434,7 @@ Never confirm Accept, Start, or a reorder.
 | Mutation in flight | The row already shows the new state (optimistic). | — |
 | Mutation failed | `That didn’t save. The story is back as it was.` | Retry is the same verb, still on the row. |
 | Lost session | `You’re signed out.` | `Sign in` |
-| Forbidden (viewer, or agent-only rule in the UI) | `Viewers can look, not change.` | — |
+| Forbidden (viewer) | `Viewers can look, not change.` | — |
 | Cross-tenant / missing | `We can’t find that.` (404, never “you aren’t allowed to see org B”) | `Back to your projects` |
 | Stale socket (slice 17) | `Connection lost. We’ll reconnect.` | Automatic reconnect. Secondary: `Refresh` |
 
@@ -626,7 +626,7 @@ Icebox with rows: composer is a quiet `Add a story` at the top, not a modal.
 
 Requester *should* accept. The UI does not lock the button. My Work (slice 24) is where the requester finds Delivered; until then, Delivered is obvious in Current (Delivered blue meta).
 
-Agent cannot accept — no agent chrome here. Viewer: verbs absent.
+Viewer: verbs absent. Agents are not special: a Member or Owner token uses the same Accept path as a human. No agent-only chrome.
 
 Confirm: none on Finish / Deliver / Accept. Undo: activity.
 
@@ -655,7 +655,7 @@ Incomplete tasks / blockers (later slices): accept anyway; toast `Accepted, with
 | --- | --- | --- |
 | Dialog | Title `Reject this story?` Body label `Why` placeholder `What needs to change?` | Type, `Reject` |
 | Empty reason | `Say why, then reject.` | Type |
-| Viewer / agent | Control absent | — |
+| Viewer | Control absent | — |
 | Success reject | `Rejected.` Reason visible. | `Restart` |
 | Success restart | `Restarted.` | `Finish` |
 
@@ -769,7 +769,7 @@ Rollover is midnight, project TZ. No “close the iteration” button.
 **Screen:** `PeopleFields` on `StorySheet`. No notification chrome. Mentions and mail are slice 12b.
 
 - One next action on a story with no owner: **Add owner** (Start already did this for the clicker).
-- Secondary: change requester (human Member/Owner only); Follow (if allowed).
+- Secondary: change requester (another Member or Owner on the project, human or agent); Follow (if allowed).
 - Max 5 owners. Sixth: `This story already has 5 owners.`
 - Requester and owners: followed, **cannot** unfollow. Control reads `Following` and is disabled, title `Requesters and owners stay subscribed.`
 - Viewer: see owners and requester; cannot assign or follow.
@@ -777,7 +777,6 @@ Rollover is midnight, project TZ. No “close the iteration” button.
 | State | Copy | Next |
 | --- | --- | --- |
 | Empty owners | `No owners yet. Start assigns you.` | `Add owner` or Start |
-| Agent as requester | Impossible in the picker | — |
 | Success | Initials on the row | — |
 
 ---
@@ -993,18 +992,19 @@ Reveal (Tracker steal): a quieter control to scroll the story into its column. Y
 
 ### Slice 23 — Agent token (human UI)
 
-API contract is `docs/agent-api/agent-api.md`. This is the minting screen.
+Agents are not special. Same API as the frontend. Same Owner / Member / Viewer permissions. A Member agent can accept.
 
 **Screen:** `AgentTokenForm` in project settings (`p-6`). Owner or Member.
 
 - One next action: **Create token**.
-- Fields: Name, scopes (checkboxes, default typical CI: `stories:read` `stories:transition` `comments:write`), projects in this organisation they can write. `stories:accept` is **not** offered.
+- Fields: Name, **Role** (`member` default; Owner can also pick `owner` / `viewer`), projects in this organisation they can write. No scope checklist. The token is that role.
+- You may mint a role at or below your own. A Member cannot mint an Owner token.
 - After create: secret once. One next action: **Copy secret**.
 - Secondary: **Revoke** (confirm). Viewer: no access.
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty | `A named agent, not a copy of your login.` | Name + `Create token` |
+| Empty | `A named agent with a project role. Same permissions as a person in that role.` | Name + role + `Create token` |
 | Secret shown | `Copy this now. We won’t show it again.` | `Copy secret` |
 | Copied | `Copied. Store it with the agent.` | Done |
 | Revoke | `Revoke this token? The agent will lose access now.` | `Revoke` |
@@ -1154,7 +1154,7 @@ Default before they split: four columns in one pane (the MVP board).
 | --- | --- | --- | --- |
 | Add / estimate / verbs including Accept & Reject | Yes | Yes | No |
 | Invite, roles, iteration / scale / auto-plan / TZ | Yes | No | No |
-| Agent tokens | Yes | Yes (projects they can write) | No |
+| Agent tokens | Yes (any role) | Yes (Member or Viewer, projects they can write) | No |
 | My Work | Yes | Yes | No |
 | Search, charts, read board | Yes | Yes | Yes |
 | CSV export/import | Yes | No (assumption) | No |
@@ -1203,7 +1203,7 @@ Do not reopen these. Product Owner accepted them. They live in `docs/product/ope
 10. Epic visual: no new purple hex. Epic pill is Bloom-bordered.
 11. Slice 30 manual Current: drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current stays illegal.
 
-Not blockers (assumed, already applied): Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; no `planned` state until slice 30 (and that slice’s `planned` vs flag is a product fork, not a palette); project TZ stored, default `Australia/Melbourne`, not asked at signup; agent Feature accept stays human.
+Not blockers (assumed, already applied): Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; no `planned` state until slice 30 (and that slice’s `planned` vs flag is a product fork, not a palette); project TZ stored, default `Australia/Melbourne`, not asked at signup; agents are not special (same API, same roles; a Member agent can accept).
 
 ---
 

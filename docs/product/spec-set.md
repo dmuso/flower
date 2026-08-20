@@ -10,17 +10,17 @@ Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How e
 
 1. **[tracker-brief.md](./tracker-brief.md)** — what we copy from classic Pivotal Tracker and what we modernise. Read this first if a rule feels surprising.
 2. **This file** — principles, constraints, index.
-3. **[product-spec.md](../core-workflow/product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
-4. **[velocity-and-planning.md](../velocity-planning/velocity-and-planning.md)** — the planning model. If a slice disagrees with it, this file wins until Dan changes it.
-5. **[multitenancy.md](../multitenancy/multitenancy.md)** — accounts, organisations, projects, roles, isolation.
-6. **[agent-api.md](../agent-api/agent-api.md)** — agents as first-class actors.
+3. **[product-spec.md](./product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
+4. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model. If a slice disagrees with it, this file wins until Dan changes it.
+5. **[multitenancy.md](./multitenancy.md)** — accounts, organisations, projects, roles, isolation.
+6. **[agent-api.md](./agent-api.md)** — same API as the frontend; cookie vs bearer; role = Owner / Member / Viewer.
 7. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
 8. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
 
 Then, in the delivery workflow (do not skip):
 
 - **Reviewer** clears this spec set before anyone implements.
-- **UI Designer** writes UI notes for new UI. Look is locked: [docs/reference/frontend-design-guide.md](../reference/frontend-design-guide.md) (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board). Do not invent a new identity. Shortcut table lives in their `ui.md`.
+- **UI Designer** writes UI notes for new UI. Look is locked: [docs/reference/frontend-design-guide.md](../flower-existing-docs/docs/reference/frontend-design-guide.md) (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board). Do not invent a new identity. Shortcut table lives in their `ui.md`.
 - **Technical Lead** writes `technical-approach.md`. Stack, ports, and the eight core tables are constraints.
 - **Developer** implements one slice at a time.
 - **QA** tests each slice from its acceptance criteria alone.
@@ -43,7 +43,7 @@ Humans estimate Features (0 is valid). A Feature cannot be started without an es
 
 Any **Member** or Owner can accept. The requester *should*. My Work surfaces their Delivered stories. There is no accept ACL lock in MVP. History is undo. Viewers are read-only.
 
-Agents authenticate as themselves with scoped tokens. They do not impersonate a human.
+Agents authenticate as named actors with a bearer token bound to a project membership. They use the same API as humans. The token does not add scopes beyond Owner / Member / Viewer.
 
 ## Product principles
 
@@ -86,18 +86,18 @@ Architecture lives in `technical-approach.md` after the Reviewer clears this set
 
 | File | Owns |
 | --- | --- |
-| [spec-set.md](./spec-set.md) | How to read, summary, principles, constraints |
+| [README.md](./README.md) | How to read, summary, principles, constraints |
 | [tracker-brief.md](./tracker-brief.md) | Copy-exactly vs modernise |
-| [product-spec.md](../core-workflow/product-spec.md) | Problem, personas, slices, AC, agents |
-| [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md) | Iteration math, packing, releases, charts, examples |
-| [multitenancy.md](../multitenancy/multitenancy.md) | Organisations, roles, isolation, workspaces |
-| [agent-api.md](../agent-api/agent-api.md) | Agent identity, scopes, REST, webhooks, errors |
+| [product-spec.md](./product-spec.md) | Problem, personas, slices, AC, agents |
+| [velocity-and-planning.md](./velocity-and-planning.md) | Iteration math, packing, releases, charts, examples |
+| [multitenancy.md](./multitenancy.md) | Organisations, roles, isolation, workspaces |
+| [agent-api.md](./agent-api.md) | Same API / same roles; cookie vs bearer; webhooks for any client |
 | [open-questions.md](./open-questions.md) | True forks + baked assumptions |
 | [LANDING.md](./LANDING.md) | Eventual repo paths; overview.md correction |
 
 ## Keyboard shortcuts (stub for UI Designer)
 
-Product rules: [product-spec.md](../core-workflow/product-spec.md) slice 16. Full chord table belongs in `ui.md` (board / story / dialog, browser conflicts, one-handed start / finish / deliver / accept / estimate / reorder / search). Implementers must not ship a hidden private keymap.
+Product rules: [product-spec.md](./product-spec.md) slice 16. Full chord table belongs in `ui.md` (board / story / dialog, browser conflicts, one-handed start / finish / deliver / accept / estimate / reorder / search). Implementers must not ship a hidden private keymap.
 
 ## What “done” means for this spec
 

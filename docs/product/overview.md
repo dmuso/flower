@@ -43,7 +43,7 @@ A marker, not work. Auto-started when created or dragged into Backlog. Finish â†
 
 Roles are Owner, Member, Viewer. **Any Member or Owner can accept.** The requester *should*. Viewers are read-only. There is no accept ACL in MVP. History undoes a mistake.
 
-Agents are first-class actors with scoped tokens. They can start, finish, and deliver. They cannot accept or reject Features.
+Agents authenticate as named actors with a bearer token bound to a project membership, and use the same API as humans. Permissions are the membership role (Owner / Member / Viewer). A Member agent can accept and reject.
 
 ## What the core schema covers
 

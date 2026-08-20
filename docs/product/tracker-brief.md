@@ -1,6 +1,6 @@
 # Tracker: copy exactly vs modernise
 
-Classic Pivotal Tracker is the product we are rebuilding. This note is short on purpose. Planning detail lives in [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md). Types and slices live in [product-spec.md](../core-workflow/product-spec.md).
+Classic Pivotal Tracker is the product we are rebuilding. This note is short on purpose. Planning detail lives in [velocity-and-planning.md](./velocity-and-planning.md). Types and slices live in [product-spec.md](./product-spec.md).
 
 If a later doc invents a third behaviour, this list plus the two companion files win.
 
@@ -33,12 +33,12 @@ Tracker got these wrong, or the world changed. We are explicit.
 
 | Tracker | Flower |
 | --- | --- |
-| API token acts as the human who minted it | Agents are **first-class actors** with their own name, scoped token, and attribution. No impersonation. |
+| API token acts as the human who minted it | Agents authenticate as named actors with a bearer token bound to a project membership, and use the **same API** as humans. Attribution is the agent’s name. The token does not add scopes beyond Owner / Member / Viewer. |
 | “Bugs and chores may be estimated” could not be turned off | Same toggle is later, and it is **reversible**. |
 | Custom point scale could not be reverted | Custom scale is later and **must be revertible**. Fibonacci (`0,1,2,3,5,8`) and Powers of 2 (`0,1,2,4,8`) are later project settings. |
 | No first-class organisation tenant in the way we need | **Organisations** (UK spelling) are the tenant. Multitenant from day one. |
 | Email/password era only | Email + password **and** magic link in MVP. SSO later. |
-| REST only, webhooks as the user | REST + webhooks in the agent slice. GraphQL later unless cheap. |
+| REST only, webhooks as the user | Same REST API (`/api/v1/...`) for humans and agents. Webhooks are a product feature for any client, not an agent privilege. GraphQL later unless cheap. |
 | In-app + email; later Slack | Mentions: in-app + email in Phase 1. Slack later. |
 | CSV / PT import as a pile | CSV import/export Phase 3. Pivotal Tracker import later **if at all**. |
 | Team strength % in the velocity formula | **Not MVP.** Average accepted Feature points only. |
