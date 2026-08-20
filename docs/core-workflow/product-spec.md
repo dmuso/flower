@@ -167,15 +167,15 @@ A team can sign up, share a project, Icebox a Feature, rank it, estimate, run th
 
 ### Slice 0 — Owner signs up, creates an organisation and first project, sees an empty board
 
-**Why slice 0:** later slices need an account, a tenant, and a board. Still demoable.
+**Why slice 0:** later slices need a user, a tenant, and a board. Still demoable.
 
 **Why independently acceptable:** a stranger becomes Owner of an organisation that contains one project, signs out, signs in, and sees the same empty four columns.
 
 Acceptance criteria:
 
-- Given I have no account, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
-- Given I have no account, when I open a magic link to a new email, then an account is created and I am on the same organisation + project flow.
-- Given I have an account, when I sign in with password **or** magic link, then I land on my last project.
+- Given I have no user, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
+- Given I have no user, when I open a magic link to a new email, then a user is created and I am on the same organisation + project flow.
+- Given I have a user, when I sign in with password **or** magic link, then I land on my last project.
 - Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show the computed window end and **velocity 10** (initial). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
 - Columns follow `docs/reference/frontend-design-guide.md` (full-height, paper, bloom current highlight). Fail if a new palette appears.
 - Unverified password signup cannot create an organisation.
@@ -189,8 +189,8 @@ Acceptance criteria:
 Acceptance criteria:
 
 - Given I am a project Owner, when I invite `alex@example.com` as `member`, then they get an email with a single-use link and I see a pending invite.
-- Given they have no account, when they accept, then they complete signup and land on the project as Member.
-- Given they have an account, when they accept and sign in, then the project is in their list.
+- Given they have no user, when they accept, then they complete signup and land on the project as Member.
+- Given they have a user, when they accept and sign in, then the project is in their list.
 - Roles are exactly `owner`, `member`, `viewer`.
 - Given I invite as `viewer`, when they open the board, then they can see it and **cannot** create a story, invite, or change settings.
 - Email already a member → visible error, no second membership.
@@ -491,7 +491,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- List / create / revoke on the **user**: `GET|POST|DELETE /api/v1/users/:id/tokens`. Each user manages their own tokens (account settings, not an organisation or project screen). Owner or Member creates a generic **API token** with a role at or below their own on projects they belong to. Member cannot mint Owner. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
+- List / create / revoke on the **user**: `GET|POST|DELETE /api/v1/users/:id/tokens`. Each user manages their own tokens (user settings, not an organisation or project screen). Owner or Member creates a generic **API token** with a role at or below their own on projects they belong to. Member cannot mint Owner. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
 - Bearer token. Humans can also use a session cookie. Same `/api/v1` handlers, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. There is no org-level mint path. There is no `unstart` verb.
 - Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`). A Viewer may still create a token on their own user; it can only read.
 - Member-bound token **can** accept a delivered Feature (and reject with a reason). Same as a Member with a cookie.

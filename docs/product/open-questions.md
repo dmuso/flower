@@ -13,7 +13,7 @@ Only **true forks** — things we cannot assume. Everything else is decided. If 
 7. **CSV export by Members.** We assume **Owners only** for import and export. Fork: Members may export.
 8. **Cycle-time clock on reject.** We assume first `started` → `accepted`, and reject does not reset the clock. Fork: clock from the *last* Restart.
 9. **`planned` as a story state vs a panel flag (slice 30).** Tracker adds `planned` when Current is manually planned. Manual planning is a later slice. Fork: introduce `planned` as a story state vs keep `unstarted` and a panel flag only. `planned` (if introduced) is not an assignment to a window record. There are no iteration rows.
-10. **Workspaces shared or personal.** We assume personal (per account) in one organisation. Fork: shared team workspaces.
+10. **Workspaces shared or personal.** We assume personal (per user) in one organisation. Fork: shared team workspaces.
 
 If Dan does not answer, the “we assume” side ships.
 
@@ -72,7 +72,7 @@ If Dan does not answer, the “we assume” side ships.
 
 ### Tenancy and roles
 
-- Signup creates an Account + an Organisation + a first Project.
+- Signup creates a user + an Organisation + a first Project.
 - Roles: Owner / Member / Viewer only, on the project.
 - Viewers are read-only (no comments, no follows). A Viewer may create a token on their own user; it can only read.
 - Organisation owners can enter every project in the organisation.

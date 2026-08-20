@@ -13,7 +13,7 @@ Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How e
 3. **[product-spec.md](./product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
 4. **[domain-model.md](./domain-model.md)** — what each domain owns. Technical Lead owns the tree (`api/internal/domain/<domain>`; frontend split by domain).
 5. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model (`pack` as a pure function). If a slice disagrees with it, this file wins.
-6. **[multitenancy.md](./multitenancy.md)** — accounts, organisations, projects, roles, isolation.
+6. **[multitenancy.md](./multitenancy.md)** — users, organisations, projects, roles, isolation.
 7. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
 8. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
 

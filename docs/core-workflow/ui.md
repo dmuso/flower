@@ -149,7 +149,7 @@ Left: **organisation name** (switcher) · **project name** (switcher) · optiona
 
 Centre: nothing. The board is the meeting.
 
-Right: search field (placeholder `Search this project` — `/` focuses it) · `?` · account menu (Sign out, settings).
+Right: search field (placeholder `Search this project` — `/` focuses it) · `?` · user menu (Sign out, settings).
 
 Viewers see the same bar. They do not see Invite or Settings that mutate.
 
@@ -304,7 +304,7 @@ Flower fills what it can. The human types what only a human knows.
 
 | Thing | Infer (Flower) | Ask (human) |
 | --- | --- | --- |
-| Account email | — | Email |
+| Email | — | Email |
 | Password or magic link | — | Their choice. Do not force both. |
 | Username | Infer from email local-part; editable later. Locked 20 Aug 2026. | Do not ask at signup. |
 | Email verification | Send the mail | They click the link |
@@ -461,17 +461,17 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 
 **SignUp**
 
-- One next action: **Create account** (Primary).
-- Secondary: **Email me a link instead** (Secondary). Sign in link in the footer, quieter: `Already have an account? Sign in`.
+- One next action: **Sign up** (Primary).
+- Secondary: **Email me a link instead** (Secondary). Sign in link in the footer, quieter: `Already a user? Sign in`.
 - Fields: Email, Password. Username: **do not ask.** Infer from the email local-part. No username field in slice 0.
 - Confirm: none. They can sign out.
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty | `Email and a password. That’s enough to start.` | `Create account` |
-| Loading | `Creating your account…` | — |
-| Error (taken) | `That email already has an account.` | `Sign in` |
-| Error (blank) | `Need an email and a password.` | Fix and `Create account` |
+| Empty | `Email and a password. That’s enough to start.` | `Sign up` |
+| Loading | `Signing you up…` | — |
+| Error (taken) | `That email already belongs to a user.` | `Sign in` |
+| Error (blank) | `Need an email and a password.` | Fix and `Sign up` |
 | Success (password) | `Check your email to verify.` | Open mail; the verify link continues. |
 
 **CheckEmail / verify**
@@ -479,7 +479,7 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 - One next action: the link in the email.
 - Unverified password signup **cannot** create an organisation (AC). If they sneak to the app: `Verify your email to continue.` + `Resend the email`.
 
-**Magic link (no account)**
+**Magic link (no user yet)**
 
 - One next action: **Email me a link**.
 - Success: `Check your email for a link.` Same organisation + project flow after the click.
@@ -552,7 +552,7 @@ Reload stays in this organisation / project.
 
 **Accept invite (new email):** signup (password or magic link) → land on the project as the invited role.
 
-**Accept invite (existing account):** sign in → project is in their list → board.
+**Accept invite (existing user):** sign in → project is in their list → board.
 
 **Viewer board:** they can see; they cannot create, invite, or change settings. Mutating controls absent, not merely disabled.
 
@@ -1000,7 +1000,7 @@ Reveal (Tracker steal): a quieter control to scroll the story into its column. Y
 
 Generic API tokens, minted on the **user** (`/users/:id/tokens`). Same API as the frontend. Same Owner / Member / Viewer permissions. A Member token can accept. No special token type. No scope checklist.
 
-**Screen:** `TokenForm` on the **account** (user settings). Each user manages their own tokens.
+**Screen:** `TokenForm` on **user** settings. Each user manages their own tokens.
 
 - One next action: **Create token**.
 - Fields: Name, **Role** (`member` default; you can pick a role at or below your own on the selected projects), projects you belong to. The token is that role on those projects.
@@ -1159,7 +1159,7 @@ Default before they split: four columns in one pane (the MVP board).
 | --- | --- | --- | --- |
 | Add / estimate / verbs including Accept & Reject | Yes | Yes | No |
 | Invite, roles, iteration length (days) / scale / auto-plan / TZ | Yes | No | No |
-| API tokens (own account) | Yes | Yes | Yes (own tokens; Viewer role on the token still cannot mutate) |
+| API tokens (own) | Yes | Yes | Yes (own tokens; Viewer role on the token still cannot mutate) |
 | My Work | Yes | Yes | No |
 | Search, charts, read board | Yes | Yes | Yes |
 | CSV export/import | Yes | No (assumption) | No |

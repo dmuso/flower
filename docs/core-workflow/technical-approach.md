@@ -258,7 +258,10 @@ organisation_memberships
 - `iteration_start_weekday INTEGER NOT NULL` default 1 (ISO 1 = Monday). Product: default start weekday Monday.
 - `iteration_length_days INTEGER NOT NULL` — the only stored window length. Default 7. Owner may set any positive integer (velocity doc; typical 7, 14, 21, 28).
 
-**Slug / URL (open question 2 — unspecified product):** API and SPA routes use UUIDs: `/api/v1/organisations/:organisation_id/projects/:project_id`. No public organisation slug in Phase 0. `projects.slug` stays as the existing column, unique **per organisation**, generated from the project name plus a short suffix on collision. Do not invent a new slug scheme.
+**Slug / URL:** API and SPA routes use UUIDs: `/api/v1/organisations/:organisation_id/projects/:project_id`. No public organisation slug in Phase 0. `projects.slug` stays as the existing column, unique **per organisation**, generated from the project name plus a short suffix on collision. Do not invent a new slug scheme.
+
+
+The person is a **user** (`users` table, `/api/v1/users/...`).
 
 **Authn (humans):**
 
@@ -277,12 +280,12 @@ sessions
 Cookie: `flower_session`, HttpOnly, SameSite=Lax, Path=/, Secure in production. Hash the raw token; never store it.
 
 - `users.email_verified_at TIMESTAMP NULL`. Password signup cannot create an organisation until this is set. A magic-link hit on a new email **is** verification.
-- `users.password_hash` becomes **nullable** (schema-only). Magic-link-only accounts have `NULL`. Password login on `NULL` is `unauthorized` with a message to use the magic link — that is a real branch, not a fallback hash.
+- `users.password_hash` becomes **nullable** (schema-only). Magic-link-only users have `NULL`. Password login on `NULL` is `unauthorized` with a message to use the magic link — that is a real branch, not a fallback hash.
 - `users.last_project_id` optional; session `last_project_id` is enough for “land on my last project” if updated on board load.
 
 Session login is for users with passwords or magic links. An API token is not a login identity and does not create a session.
 
-**Username (locked 20 Aug 2026):** infer from the email local-part. No username field in slice 0. `users.username` is `NOT NULL UNIQUE`. Slice 0 must persist one: derive from the email local-part (`[a-z0-9_]+`, trim to 100); if taken, append `-` + 4 random unambiguous chars. Allow edit later when a profile slice exists. Do not write an empty string (that is a fallback).
+**Username:** infer from the email local-part (`[a-z0-9_]+`, trim to 100); if taken, append `-` + 4 random unambiguous chars. `users.username` is unique. No username field in slice 0. Editable later when a profile slice exists.
 
 **Display name (unspecified product):** column is `NOT NULL`. Set it to the username at create. Do not invent a profile editor in Phase 0.
 
@@ -321,7 +324,7 @@ Resend: revoke (or consume) the old row, insert a new hash. Email already a memb
 
 **Effective role (one function, used by every handler):**
 
-1. If the account is an organisation owner of `project.organisation_id` → treat as project `owner` even with no `project_memberships` row.
+1. If the user is an organisation owner of `project.organisation_id` → treat as project `owner` even with no `project_memberships` row.
 2. Else the `project_memberships.role` for `(project_id, user_id)`.
 3. Else: if the project’s organisation is not one they belong to → **404** on id fetch. If they belong to the org but not the project → **404** (enumeration: project lists only return projects they can open).
 4. Same-tenant, known project, insufficient role on a mutation → `forbidden` (403). Viewers can GET stories; `POST /stories` is `forbidden`, not 404.
@@ -488,7 +491,7 @@ There is **no** `/board` API. `GET /api/v1/projects/:id/stories` (and project se
 
 Ground: `stories.rank VARCHAR(64)`, unique per project today.
 
-Icebox is its own ordered list (assumption; open question 5). Unique `(project_id, rank)` cannot hold two independent sequences without collisions.
+Icebox is its own ordered list. Unique `(project_id, rank)` cannot hold two independent sequences without collisions.
 
 **Add (slice 2), do not change the type of `rank`:**
 
@@ -674,7 +677,7 @@ Only what a slice cannot ship without. No drive-by.
 | Must take | Why | Slice |
 | --- | --- | --- |
 | `projects.slug` unique per organisation, not globally | Tenancy; existing index is global | 0 |
-| `users.password_hash` nullable | Magic-link-only accounts; `NOT NULL` plus a dummy hash would be a fallback | 0 |
+| `users.password_hash` nullable | Magic-link-only users; `NOT NULL` plus a dummy hash would be a fallback | 0 |
 | `UNIQUE (project_id, rank)` → `UNIQUE (project_id, rank_list, rank)` | Two lists, one `VARCHAR(64)` column | 2 |
 | Add `organisation_id` / timezone / velocity settings / `iteration_length_days` on `projects` | Missing vs product; do not recreate `projects` | 0 / 8 |
 | Add `velocity_samples`; do not add an iteration table or a story window FK | Planning is a calculation | 8 |
@@ -688,7 +691,7 @@ Only what a slice cannot ship without. No drive-by.
 - `TIMESTAMP` → `TIMESTAMPTZ` as a drive-by.
 - DB enums / triggers / functions for state, role, or type.
 - GraphQL.
-- A second workflow engine or `planned` state (open question 9; only if the manual-planning slice needs it).
+- A second workflow engine or `planned` state (only if the manual-planning slice needs it).
 - Extracting a microservice, adding Redis, or adding a queue product for Phase 0.
 - “Fixing” Icebox into a sequential stage to match the old root README.
 - Changing Flower ports (8180 / 4273 / 5433 / 5437) or the locked look.
@@ -734,7 +737,7 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 
 - Unverified password signup: org create is rejected; no `organisations` row.
 - Verified password signup: organisation + first project; creator is organisation owner and project owner; `point_scale = linear`, `iteration_length_days = 7`, `initial_velocity = 10`, `timezone = Australia/Melbourne` (until fork).
-- Magic link to a new email: account created, `email_verified_at` set, same org+project flow.
+- Magic link to a new email: user created, `email_verified_at` set, same org+project flow.
 - Login password and login magic link both land on last project.
 - Story list on a new project: empty; SPA shows four empty columns; V displays 10; no fake stories, no fake dates.
 - Reload: same organisation / project ids.
@@ -753,7 +756,7 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 
 - Owner invites `alex@example.com` as `member`: outbox has one email; pending invite listed; token hashed.
 - New email accept: signup, lands as Member.
-- Existing account accept: project in their list.
+- Existing user accept: project in their list.
 - Invite as `viewer`: story list works; `POST /stories`, invite, settings → `forbidden`.
 - Email already a member → visible error, one membership row.
 - Revoke → consume fails. Expiry 14 days. Resend invalidates old hash.

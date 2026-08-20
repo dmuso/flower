@@ -18,7 +18,7 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 ## user
 
-**Owns:** the `users` row, signup / login / magic link / email verify, server-side sessions, **API tokens** (`POST/GET/revoke /api/v1/users/:id/tokens`).
+**Owns:** the `users` row, signup / login / magic link / email verify, server-side sessions, and API tokens (`POST` / `GET` / revoke `/api/v1/users/:id/tokens`).
 
 **Invariants:** a token authenticates as `api_tokens.user_id`. It is not a login identity. Role is that user’s project memberships (or an optional cap ≤ minter). Member cannot mint Owner. Viewer cannot mint. No organisation-collection token API.
 

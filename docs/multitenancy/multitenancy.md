@@ -17,7 +17,7 @@ Spelling: **organisation**, not organization. Use that in new tables, fields, an
 ## Hierarchy
 
 ```
-Account (human login)
+User (human login)
   └── User API token (credential of that user; list/create/revoke on the user)
   └── Membership in one or more Organisations
         └── Project
@@ -25,19 +25,19 @@ Account (human login)
         └── Workspace (Phase 3; a view, not a tenant)
 ```
 
-### Account
+### User
 
 A person. Email unique. Authenticates with email + password and/or magic link in MVP. SSO later.
 
-`users.username` is `NOT NULL UNIQUE` — see [open-questions.md](./open-questions.md). One email, one account. An account can belong to many organisations. An account is not a tenant. Data is always organisation → project → story.
+Username is inferred from the email local-part. No username field in slice 0. One email, one user. A user can belong to many organisations. A user is not a tenant. Data is always organisation → project → story.
 
-Deleting an account (no slice yet) must not delete an organisation that still has another owner.
+Deleting a user (no slice yet) must not delete an organisation that still has another owner.
 
 ### Organisation
 
 The **tenant**. Isolation boundary. Billing boundary when billing exists. All projects, stories, files, webhooks, and audit live under an organisation.
 
-Created on first-run signup (slice 0): the new account becomes the first **organisation owner** and must create a first project in the same flow. No organisation-without-a-project on first run. After someone deletes the last project, empty-organisation state is “create a project.”
+Created on first-run signup (slice 0): the new user becomes the first **organisation owner** and must create a first project in the same flow. No organisation-without-a-project on first run. After someone deletes the last project, empty-organisation state is “create a project.”
 
 URLs must not leak another organisation’s ids. Cross-tenant fetch of a guessed UUID returns **404**, not 403.
 
@@ -87,7 +87,7 @@ A person may be `viewer` on project A and `member` on project B in the same orga
 9. **Emails** may mention a project name and a link. They must not include another tenant’s titles in the same mail.
 10. **No product superuser.** Support break-glass is out of scope.
 
-Enumeration: project lists return only projects the account can open. Organisation lists return only organisations they belong to.
+Enumeration: project lists return only projects the user can open. Organisation lists return only organisations they belong to.
 
 ## What viewers cannot do
 
@@ -131,7 +131,7 @@ They **can** accept, reject, restart, undo, and create API tokens on **their own
 
 ## Workspaces (Phase 3)
 
-A workspace is a **named, personal (per account) set of projects inside one organisation**.
+A workspace is a **named, personal (per user) set of projects inside one organisation**.
 
 - Not a tenant. Not a permission boundary. Not shared in this slice.
 - Default: “All my projects” in that organisation.
@@ -149,7 +149,7 @@ On invite accept:
 
 Organisation owners are appointed by existing organisation owners.
 
-Removing someone from their last project in the organisation removes the organisation from their list. It does not delete their account.
+Removing someone from their last project in the organisation removes the organisation from their list. It does not delete the user.
 
 ## Invites
 
@@ -157,7 +157,7 @@ Removing someone from their last project in the organisation removes the organis
 - Role on the invite: owner / member / viewer.
 - Email already on the project: error, no duplicate.
 - 14-day expiry; resend invalidates the old link; revoke kills it now.
-- New email: they create an account on accept (password or magic link).
+- New email: they create a user on accept (password or magic link).
 - Invite does not grant other projects.
 
 ## Settings
