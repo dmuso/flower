@@ -5,7 +5,7 @@ Only **true forks** — things we cannot assume. Everything else is decided. If 
 ## True forks
 
 1. **~~User API tokens.~~ Locked.** Not a fork. Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. No org-level mint path. See Decisions locked.
-2. **~~Dynamic windows.~~ Locked.** Not a fork. Iterations are not a domain. Planning is a calculation. There is no iteration row as the plan and no story-to-window assignment. Stored setting: **length in days** (`iteration_length_days`) on the project (default 7). UI draws Current + future bands from `pack`. See [velocity-and-planning.md](./velocity-and-planning.md).
+2. **~~Dynamic windows.~~ Locked.** Not a fork. Iterations are not a domain. Planning is a calculation. There is no iteration row as the plan and no story-to-window assignment. Stored setting: **length in days** (`iteration_length_days`) on the project (default 7). UI draws Current + future bands from `pack`. See [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md).
 3. **Organisation slug and URL.** We assume a human-facing organisation name plus whatever URL the Technical Lead needs. Fork: public slug uniqueness vs per-user uniqueness.
 4. **Project timezone source.** Window end is midnight in the project timezone. Fork: store an explicit project timezone (recommended) vs infer from the creating owner and never show a setting in MVP.
 5. **Icebox order vs backlog order.** Tracker Icebox is its own ordered list, not interleaved with Backlog. We assume that. Fork: one global rank including Icebox (filter by state) vs two ranks.
@@ -68,7 +68,7 @@ If Dan does not answer, the “we assume” side ships.
 - Ports: API 8180, frontend 4273, Postgres 5433/5437.
 - Core tables: `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. Schema must match this model. Planning is a calculation — no `iterations` table.
 - `stories.rank` is a string. Title max 500.
-- Business rules in `api/internal/domain/<domain>`, not the database. Frontend is split by domain. See [domain-model.md](./domain-model.md).
+- Business rules in `api/internal/domain/<domain>`, not the database. Frontend is split by domain. See [domain-model.md](../core-workflow/domain-model.md).
 
 ### Tenancy and roles
 

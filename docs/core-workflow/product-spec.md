@@ -2,7 +2,7 @@
 
 Change name: `flower`
 
-Eventual path: `docs/core-workflow/product-spec.md` (see [LANDING.md](./LANDING.md)).
+Eventual path: `docs/core-workflow/product-spec.md` (see [LANDING.md](../product/LANDING.md)).
 
 This spec is the product. Companion files own exhaustive rules for planning and tenancy. Do not implement until the Reviewer clears the spec set.
 
@@ -28,7 +28,7 @@ What better looks like:
 
 A team signs up, makes an organisation and a project, and sees Icebox / Backlog / Current / Done. They type Features into Icebox, pull them into the ranked list, estimate 0/1/2/3, start only estimated Features, finish, deliver, and accept (any Member may; the requester should). Rejected work Restarts to started and stays in Current. Flower packs the ranked list into Current and future visual bands from velocity. A second person sees the move without refresh. A Member or Owner mints a **user API token** (`/api/v1/users/:id/tokens`) and a client (CI, a script, Grove) calls the same story API as the frontend.
 
-Keep `docs/product/overview.md` as the one-page intent and make it match this spec set (see [LANDING.md](./LANDING.md)).
+Keep `docs/product/overview.md` as the one-page intent and make it match this spec set (see [LANDING.md](../product/LANDING.md)).
 
 ## Personas
 
@@ -81,9 +81,9 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 - Team strength % (later). Manual planning of Current (later, Phase 3).
 - A new visual identity.
 
-## Assumptions (law; see [open-questions.md](./open-questions.md))
+## Assumptions (law; see [open-questions.md](../product/open-questions.md))
 
-See also [tracker-brief.md](./tracker-brief.md). Short form:
+See also [tracker-brief.md](../product/tracker-brief.md). Short form:
 
 - Email + password and magic link for humans in MVP; SSO later. Session cookie for the app.
 - **User API token** (Bearer): mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. No org-level mint path.
@@ -176,7 +176,7 @@ Acceptance criteria:
 - Given I have no user, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
 - Given I have no user, when I open a magic link to a new email, then a user is created and I am on the same organisation + project flow.
 - Given I have a user, when I sign in with password **or** magic link, then I land on my last project.
-- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show the computed window end and **velocity 10** (initial). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
+- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show the computed window end and **`0 / 10`** (points / initial velocity). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
 - Columns follow `docs/reference/frontend-design-guide.md` (full-height, paper, bloom current highlight). Fail if a new palette appears.
 - Unverified password signup cannot create an organisation.
 - Creator is organisation owner and project owner.
@@ -276,7 +276,7 @@ Acceptance criteria:
 
 ### Slice 8 — Team sees Current and future bands auto-fill from velocity
 
-**Why independently acceptable:** the Tracker moment, computed live. Rules: [velocity-and-planning.md](./velocity-and-planning.md).
+**Why independently acceptable:** the Tracker moment, computed live. Rules: [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md).
 
 Acceptance criteria:
 
@@ -457,7 +457,7 @@ Acceptance criteria:
 
 **Why independently acceptable:** Maya can answer “when.”
 
-Rules: [velocity-and-planning.md](./velocity-and-planning.md).
+Rules: [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md).
 
 Acceptance criteria:
 
@@ -536,7 +536,7 @@ Acceptance criteria:
 
 ### Slice 25 — Member opens a named workspace of projects in one organisation
 
-Workspace = a personal named set of projects in one organisation. Not a tenant. See [multitenancy.md](./multitenancy.md).
+Workspace = a personal named set of projects in one organisation. Not a tenant. See [multitenancy.md](../multitenancy/multitenancy.md).
 Why independently acceptable: Maya switches Trail and Checkout without leaving Acme, and cannot pull in another organisation.
 
 Acceptance criteria:
@@ -604,7 +604,7 @@ A human merges. Do not implement before the Reviewer clears the spec.
 
 ## References
 
-- This brief and the locked Tracker copy-exactly list ([tracker-brief.md](./tracker-brief.md)).
+- This brief and the locked Tracker copy-exactly list ([tracker-brief.md](../product/tracker-brief.md)).
 - Domain map (Technical Lead): [domain-model.md](./domain-model.md).
 - Classic Pivotal Tracker help: story states, types, velocity, backlog-to-current, icebox, releases, automatic vs manual planning.
 - [github.com/dmuso/flower](https://github.com/dmuso/flower) — `docs/product/overview.md`, `docs/reference/frontend-design-guide.md`. Schema must match this model.
