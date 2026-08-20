@@ -1,6 +1,6 @@
 # Tracker: copy exactly vs modernise
 
-Classic Pivotal Tracker is the product we are rebuilding. This note is short on purpose. Planning detail lives in [velocity-and-planning.md](./velocity-and-planning.md). Types and slices live in [product-spec.md](./product-spec.md).
+Classic Pivotal Tracker is the product we are rebuilding. This note is short on purpose. Planning detail lives in [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md). Types and slices live in [product-spec.md](../core-workflow/product-spec.md).
 
 If a later doc invents a third behaviour, this list plus the two companion files win.
 

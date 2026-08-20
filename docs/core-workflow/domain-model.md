@@ -2,8 +2,6 @@
 
 Eventual repo path: `docs/core-workflow/domain-model.md`
 
-Local draft: `/workspace/flower-spec/domain-model.md`
-
 Change name: `flower`
 
 Implementer map: what each domain owns and what it must not own. Slice order stays in `product-spec.md`. Packing math stays in `velocity-and-planning.md`. Directory shape stays in `technical-approach.md`.

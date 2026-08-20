@@ -2,8 +2,6 @@
 
 Eventual repo path: `docs/core-workflow/technical-approach.md`
 
-Local draft: `/workspace/flower-spec/technical-approach.md`
-
 Change name: `flower`
 
 This is the Technical Lead approach for implementers. It does not replace the product companions. It does not invent product rules.
@@ -709,13 +707,13 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 - Verified password signup: organisation + first project; creator is organisation owner and project owner; `point_scale = linear`, `iteration_length_days = 7`, `initial_velocity = 10`, `timezone = Australia/Melbourne` (until fork).
 - Magic link to a new email: user created, `email_verified_at` set, same org+project flow.
 - Login password and login magic link both land on last project.
-- Story list on a new project: empty; SPA shows four empty columns; velocity displays 10; no fake stories, no fake dates.
+- Story list on a new project: empty; SPA shows four empty columns; Current header shows `0 / 10` (points / initial velocity); no fake stories, no fake dates.
 - Reload: same organisation / project ids.
 - Cross-tenant: session A `GET` project/story id from org B → 404.
 
 **QA**
 
-- Stranger signs up, names organisation `Acme` and project `Trail`, sees Icebox / Backlog / Current / Done empty (Current may show dates + velocity 10).
+- Stranger signs up, names organisation `Acme` and project `Trail`, sees Icebox / Backlog / Current / Done empty (Current may show dates + `0 / 10`).
 - Sign out, sign in, same empty board. Fail if another tenant’s name appears.
 - Fail if a new palette appears (frontend guide).
 - Fail if unverified password user can create an organisation.
@@ -835,7 +833,7 @@ Normative tests = velocity doc worked examples 1–3 **and** its QA short script
 
 - New project velocity = 10. Five estimated Features totalling > 10: Current **short**, not over. Next Feature that would exceed 10 stays in the next Backlog band.
 - Never split.
-- Start a Backlog Feature that did not fit → Current, points may exceed 10, over-velocity badge.
+- Start a Backlog Feature that did not fit → Current, points may exceed 10, `Over capacity` badge.
 - Accept one Feature → still Current, not Done.
 - Advance test clock past window `ends_at` project timezone → that Feature in Done (flat list, newest accepted first). Accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy`; then velocity = work / time and pack uses `predicted_duration(estimate)`.
 - Reorder / estimate / accept / start / icebox / length change → board already recomputed. No window id written on the story.
