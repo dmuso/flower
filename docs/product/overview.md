@@ -15,7 +15,7 @@ This page is the one-page intent. Exhaustive rules live in the spec set (see [Ho
 - **Backlog** is the ranked queue: later **computed bands** of one ordered list. Position is priority. Bands are visual, not stored rows.
 - **Current** is this window: the head of the ranked list that fits this window’s velocity, plus in-progress work and stories accepted *this* window.
 - **Done** is accepted work that has **aged past the current window**. Flat list, newest accepted first. Accepted stories stay in Current until the window ends at midnight in the project timezone.
-- **Windows** are computed from length in days (default 7), start weekday, now, and timezone. Velocity is a live rate from completed Features’ `started_at` → `accepted_at`. Incomplete stories pack by predicted duration of previous completed stories with the same estimate. A new project bootstraps with initial velocity 10 (estimate-points that fit in a full window). Auto-plan leaves Current short rather than overfilling with the next story. Starting a story may overflow Current. Stories are not assigned to a window row.
+- **Windows** are computed from length in days (default 7), start weekday, now, and timezone. Velocity is a live rate from completed Features’ `started_at` → `accepted_at`. Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses `initial_velocity` (default 10) as estimate-points that fit in a full window. Incomplete stories pack by `predicted_duration(estimate)`. Auto-plan leaves Current short rather than overfilling with the next story. Starting a story may overflow Current. Stories are not assigned to a window row.
 - **Labels** group stories. An epic is one purple label plus an independent epic order, not a parent ticket.
 - **Activity** records what changed, **who** (the user) changed it, and when. History is undo.
 
@@ -43,7 +43,7 @@ A marker, not work. Auto-started when created or dragged into Backlog. Finish �
 
 Roles are Owner, Member, Viewer. **Any Member or Owner can accept.** The requester *should*. Viewers are read-only. There is no accept ACL in MVP. History undoes a mistake.
 
-The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **user API token** at `/api/v1/users/:id/tokens` (role at or below their own; Member cannot mint Owner). Permissions are Owner / Member / Viewer. Tokens are not org-level.
+The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **user API token**. Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path.
 
 ## What the core schema covers
 

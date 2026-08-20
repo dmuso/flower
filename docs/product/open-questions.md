@@ -4,7 +4,7 @@ Only **true forks** — things we cannot assume. Everything else is decided. If 
 
 ## True forks
 
-1. **~~User API tokens.~~ Locked.** Not a fork. Tokens are **user-scoped**: list / create / revoke at `/api/v1/users/:id/tokens`. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Owner / Member / Viewer is the whole model. Not org-level. See Decisions locked.
+1. **~~User API tokens.~~ Locked.** Not a fork. Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. No org-level mint path. See Decisions locked.
 2. **~~Dynamic windows.~~ Locked.** Not a fork. Iterations are not a domain. Planning is a calculation. There is no iteration row as the plan and no story-to-window assignment. Stored setting: **length in days** (`iteration_length_days`) on the project (default 7). UI draws Current + future bands from `pack`. See [velocity-and-planning.md](./velocity-and-planning.md).
 3. **Organisation slug and URL.** We assume a human-facing organisation name plus whatever URL the Technical Lead needs. Fork: public slug uniqueness vs per-user uniqueness.
 4. **Project timezone source.** Window end is midnight in the project timezone. Fork: store an explicit project timezone (recommended) vs infer from the creating owner and never show a setting in MVP.
@@ -25,8 +25,8 @@ If Dan does not answer, the “we assume” side ships.
 - Icebox is unscheduled, in the product from MVP, not a sequential stage.
 - One ordered list; unstarted cannot be dragged above started.
 - Auto-plan leaves Current short rather than overfill; Start may overflow Current.
-- Initial velocity **10** is bootstrap only: pack uses it as estimate-points that fit in a full window while the corpus is empty (or `time == 0`).
-- `velocity_strategy` = last number of completed windows (default 3, setting 1–4). Lookback for the corpus.
+- Initial velocity **10** is bootstrap only: pack uses `initial_velocity` as estimate-points that fit in a full window until at least one corpus Feature exists in a **completed** window (or `time == 0`). Stories accepted in the **open** window are not in the lookback.
+- Lookback is the last number of completed windows set by `velocity_strategy` (default 3, setting 1–4).
 - Velocity is live duration: `velocity = work / time` from completed Features (`started_at` → `accepted_at`). Incomplete stories pack by `predicted_duration(estimate)` from completed stories of the same estimate. Team strength % later.
 - Any Member can accept. No accept ACL. Requester should. My Work surfaces Delivered.
 - Owners max 5. Start assigns the clicker. Requester + owners auto-follow and cannot unfollow.
@@ -43,14 +43,14 @@ If Dan does not answer, the “we assume” side ships.
 ### Auth and API tokens (locked)
 
 - Humans: email + password **and** magic link in MVP. SSO later. Session cookie for the app.
-- **User API token** (Bearer): `GET|POST|DELETE /api/v1/users/:id/tokens`. Each user manages their own. Role at or below their own on selected projects. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. Not org-level.
+- **User API token** (Bearer): mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Role at or below their own on selected projects. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. No org-level mint path.
 - Same REST API (`/api/v1/...`) for cookie and Bearer. Same handlers. Webhooks are a product feature for any client. GraphQL later (product-wide).
 - Mentions: in-app + email in Phase 1. Slack later.
 
 ### Planning (locked)
 
 - Length is **days** (default 7), stored on the project as `iteration_length_days`. Not 1–4 weeks. Not a stored list of windows.
-- `pack` is a pure function of (ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone). Stories are not assigned to a window row.
+- `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. `predicted_duration` is a size → predicted-duration map; unused on cold start. Stories are not assigned to a window row.
 - There is no `iterations` table. Nothing is stored for velocity except story timestamps, estimate, and project settings. Planning is live duration + similar-size predicted duration.
 - Accepted stays in Current until the current window ends (midnight at `starts_on + iteration_length_days`, project timezone). Done is a flat aged-accepted list.
 
@@ -93,5 +93,5 @@ Keyboard and signup (UI Designer proposals, Product Owner accepted):
 - Epic visual: no new purple hex. Epic pill is Bloom-bordered. Product language “purple label” means epic-marked, not a fifth brand colour.
 - Slice 30 manual Current: when auto-plan is off, drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current is still illegal (Pull to Backlog or Start).
 - Start from Icebox: estimate-then-Start from Icebox is allowed (Feature must be estimated). It is schedule + start in one verb. The story lands `started` in Current. Shared machine rule for any Member.
-- **API tokens (locked).** User-scoped Bearer at `/api/v1/users/:id/tokens`. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Owner / Member / Viewer only. You can only mint a token with a role at or below your own. Member cannot mint Owner. No org-level mint path. No extra scopes.
+- **API tokens (locked).** Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Role at or below your own. No org-level mint path. No extra scopes.
 - **Dynamic windows (locked).** No Iteration aggregate. Length in days (default 7). Current is the head of the ranked list that fits remaining time at `velocity` (or `initial_velocity` points on cold start). Future bands are visual. Recompute when stories, estimates, start/accept, rank, or settings change. Planning is live duration + similar-size predicted duration.

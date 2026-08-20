@@ -4,24 +4,26 @@ Change name: `flower`
 
 This is the Product Owner spec set. It is not an implementation. It does not design the architecture. It does not invent a visual identity.
 
-Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How each file lands in that repo is in [LANDING.md](./LANDING.md). **Do not** overwrite `docs/reference/*` or `docs/migrations*`.
+Eventual repo: [github.com/dmuso/flower](https://github.com/dmuso/flower). How each file lands in that repo is in [LANDING.md](LANDING.md). **Do not** overwrite `docs/reference/*` or `docs/migrations*`.
 
 ## How to read this spec set
 
-1. **[tracker-brief.md](./tracker-brief.md)** — what we copy from classic Pivotal Tracker and what we modernise. Read this first if a rule feels surprising.
-2. **This file** — principles, constraints, index.
-3. **[product-spec.md](./product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
-4. **[domain-model.md](./domain-model.md)** — what each domain owns. Technical Lead owns the tree (`api/internal/domain/<domain>`; frontend split by domain).
-5. **[velocity-and-planning.md](./velocity-and-planning.md)** — the planning model (`pack` as a pure function). If a slice disagrees with it, this file wins.
-6. **[multitenancy.md](./multitenancy.md)** — users, organisations, projects, roles, isolation.
-7. **[open-questions.md](./open-questions.md)** — true forks only, plus the assumption list.
-8. **[LANDING.md](./LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
+1. **[tracker-brief.md](tracker-brief.md)** — what we copy from classic Pivotal Tracker and what we modernise. Read this first if a rule feels surprising.
+2. **This file** — principles, constraints, index. Dest: `docs/product/spec-set.md`.
+3. **[product-spec.md](../core-workflow/product-spec.md)** — problem, personas, out of scope, ordered vertical slices, acceptance criteria, required agents.
+4. **[domain-model.md](../core-workflow/domain-model.md)** — what each domain owns. Technical Lead owns the tree (`api/internal/domain/<domain>`; frontend split by domain).
+5. **[ui.md](../core-workflow/ui.md)** — screens, empty/error/success copy, shortcuts. UI Designer. Look is locked.
+6. **[technical-approach.md](../core-workflow/technical-approach.md)** — stack, ports, schema, approach. Technical Lead.
+7. **[velocity-and-planning.md](../velocity-planning/velocity-and-planning.md)** — the planning model (`pack` as a pure function). If a slice disagrees with it, this file wins.
+8. **[multitenancy.md](../multitenancy/multitenancy.md)** — users, organisations, projects, roles, isolation.
+9. **[open-questions.md](open-questions.md)** — true forks only, plus the assumption list.
+10. **[LANDING.md](LANDING.md)** — repo path map and the required `docs/product/overview.md` correction.
 
 Then, in the delivery workflow (do not skip):
 
 - **Reviewer** clears this spec set before anyone implements.
-- **UI Designer** writes UI notes for new UI. Look is locked: [docs/reference/frontend-design-guide.md](../flower-existing-docs/docs/reference/frontend-design-guide.md) (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board). Do not invent a new identity. Shortcut table lives in their `ui.md`.
-- **Technical Lead** writes `technical-approach.md` and owns [domain-model.md](./domain-model.md). Stack, ports, and the core schema are constraints.
+- **UI Designer** owns [ui.md](../core-workflow/ui.md). Look is locked: [docs/reference/frontend-design-guide.md](../reference/frontend-design-guide.md) (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, four-column board). Do not invent a new identity. Shortcut table lives in `ui.md`.
+- **Technical Lead** owns [technical-approach.md](../core-workflow/technical-approach.md) and [domain-model.md](../core-workflow/domain-model.md). Stack, ports, and the core schema are constraints.
 - **Developer** implements one slice at a time.
 - **QA** tests each slice from its acceptance criteria alone.
 
@@ -39,13 +41,13 @@ Four story types, **different state machines** (classic Tracker):
 - **Chore:** unscheduled → unstarted → started → accepted. No finished, delivered, or reject.
 - **Release:** a marker, not work. Auto-started when created or dragged into Backlog. Finish → accepted. Optional target date. Place the marker at the **end** of that milestone’s stories. Blue if on track versus the date; red if the **computed window** that contains the marker **starts** after the target.
 
-Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last `velocity_strategy` completed windows, default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the same estimate. A new project bootstraps with **initial velocity 10** as estimate-points that fit in a full window. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
+Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last number of completed windows set by `velocity_strategy`, default 3, setting 1–4). Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses `initial_velocity` (default 10) as estimate-points that fit in a full window. Incomplete stories pack by `predicted_duration(estimate)`. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
 
-Length is **days** (default 7), stored on the project. Flower does not persist Tracker-style iteration records as the plan. `pack` is a pure function. Stories are not assigned to a window row.
+Length is **days** (default 7), stored on the project. Flower does not persist Tracker-style iteration records as the plan. `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. `predicted_duration` is a size → predicted-duration map; unused on cold start. Stories are not assigned to a window row.
 
 Any **Member** or Owner can accept. The requester *should*. My Work surfaces their Delivered stories. There is no accept ACL lock in MVP. History is undo. Viewers are read-only.
 
-The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **user API token** (`/api/v1/users/:id/tokens`). Role at or below their own (Member cannot mint Owner). Owner / Member / Viewer is the whole model. Tokens are not org-level.
+The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **user API token**. Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path.
 
 ## Product principles
 
@@ -57,7 +59,7 @@ Steal the power of classic Pivotal Tracker. Refuse Jira, Monday, and late-era is
 4. **Small scale.** Default Linear 0 / 1 / 2 / 3. `0` is estimated. Unestimated is different and cannot Start a Feature.
 5. **Accept is a team verb.** Any Member may accept. Requester should. History undoes a mistake.
 6. **The board is the meeting.** Icebox / Backlog / Current / Done plus the open story.
-7. **Keyboard is first-class.** Daily actions have a chord. The UI Designer owns the table.
+7. **Keyboard is first-class.** Daily actions have a chord. The UI Designer owns the table in [ui.md](../core-workflow/ui.md).
 8. **One API.** Cookie or Bearer; same handlers; Owner / Member / Viewer. Tokens live on the user.
 9. **Say no.** No Gantt, no custom fields, no workflow engine, no resource management.
 10. **Smallest valuable slice.** Thin, end-to-end, user-visible. Not “API first.”
@@ -76,32 +78,34 @@ Treat as given. Do not redesign in this spec.
 | Tenancy | Multitenant from day one (organisations) |
 | Look | bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, column board — `docs/reference/frontend-design-guide.md` |
 | Core schema | `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. `projects.iteration_length_days`. `activities.user_id`. No `iterations` table. |
-| Added by slices | organisations, story owners, comments, tasks, attachments, epics, `api_tokens`, notifications |
-| Domain | `api/internal/domain/<domain>`; frontend split by domain — [domain-model.md](./domain-model.md) |
+| Added by slices | organisations, story owners, comments, tasks, attachments, epics, `api_tokens`, notifications, webhooks |
+| Domain | `api/internal/domain/<domain>`; frontend split by domain — [domain-model.md](../core-workflow/domain-model.md) |
 | Spelling | UK / AU / NZ (`organisations`, not `organizations`) |
 | Migrations | Schema-only. No DB enums, triggers, or functions. Business rules in the Go domain packages. |
 
-Schema must match this model. Planning is a calculation: no `iterations` table. Velocity is live from stories and is not persisted. New slices add tables (owners, comments, tasks, organisations, tokens) without inventing a second planning store.
+Schema must match this model. Planning is a calculation: no `iterations` table. Velocity is live from stories and is not persisted. New slices add tables (owners, comments, tasks, organisations, tokens, webhooks) without inventing a second planning store.
 
-Architecture lives in `technical-approach.md` after the Reviewer clears this set.
+Architecture lives in [technical-approach.md](../core-workflow/technical-approach.md).
 
 ## File index
 
 | File | Owns |
 | --- | --- |
-| [README.md](./README.md) | How to read, summary, principles, constraints |
-| [tracker-brief.md](./tracker-brief.md) | Copy-exactly vs modernise |
-| [product-spec.md](./product-spec.md) | Problem, personas, slices, AC |
-| [domain-model.md](./domain-model.md) | Domain map (Technical Lead) |
-| [velocity-and-planning.md](./velocity-and-planning.md) | Window clock, corpus, `velocity`, `predicted_duration`, `pack`, releases, charts, examples |
-| [multitenancy.md](./multitenancy.md) | Organisations, roles, isolation, workspaces |
-| [open-questions.md](./open-questions.md) | True forks + baked assumptions |
-| [LANDING.md](./LANDING.md) | Eventual repo paths; overview.md correction |
+| [spec-set.md](spec-set.md) | How to read, summary, principles, constraints |
+| [tracker-brief.md](tracker-brief.md) | Copy-exactly vs modernise |
+| [product-spec.md](../core-workflow/product-spec.md) | Problem, personas, slices, AC |
+| [domain-model.md](../core-workflow/domain-model.md) | Domain map (Technical Lead) |
+| [ui.md](../core-workflow/ui.md) | Screens, copy, shortcuts (UI Designer) |
+| [technical-approach.md](../core-workflow/technical-approach.md) | Approach (Technical Lead) |
+| [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md) | Window clock, corpus, `velocity`, `predicted_duration`, `pack`, releases, charts, examples |
+| [multitenancy.md](../multitenancy/multitenancy.md) | Organisations, roles, isolation, workspaces |
+| [open-questions.md](open-questions.md) | True forks + baked assumptions |
+| [LANDING.md](LANDING.md) | Eventual repo paths; overview.md correction |
 
-## Keyboard shortcuts (stub for UI Designer)
+## Keyboard shortcuts
 
-Product rules: [product-spec.md](./product-spec.md) slice 16. Full chord table belongs in `ui.md` (board / story / dialog, browser conflicts, one-handed start / finish / deliver / accept / estimate / reorder / search). Implementers must not ship a hidden private keymap.
+Product rules: [product-spec.md](../core-workflow/product-spec.md) slice 16. Full chord table is in [ui.md](../core-workflow/ui.md) (board / story / dialog, browser conflicts, one-handed start / finish / deliver / accept / estimate / reorder / search). Implementers must not ship a hidden private keymap.
 
 ## What “done” means for this spec
 
-A Reviewer can clear it. A UI Designer can write `ui.md` from it **and** the locked frontend guide, without inventing product rules or a new look. A Technical Lead can write `technical-approach.md` without inventing planning or tenancy. QA can fail a slice from its AC alone.
+A Reviewer can clear it. [ui.md](../core-workflow/ui.md) and the locked frontend guide are enough to implement the look without inventing product rules or a new identity. [technical-approach.md](../core-workflow/technical-approach.md) is enough to implement without inventing planning or tenancy. QA can fail a slice from its AC alone.

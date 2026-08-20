@@ -18,7 +18,7 @@ Spelling: **organisation**, not organization. Use that in new tables, fields, an
 
 ```
 User (human login)
-  └── User API token (credential of that user; list/create/revoke on the user)
+  └── User API token (credential of that user; mint/list/revoke only on your own user)
   └── Membership in one or more Organisations
         └── Project
               └── Project membership (owner | member | viewer)
@@ -79,7 +79,7 @@ A person may be `viewer` on project A and `member` on project B in the same orga
 1. **Tenant key is organisation.** Every story, comment, file, webhook, search, and membership is reachable only through an organisation the caller belongs to.
 2. **No cross-organisation read.** Session for org A must not receive org B’s stories by id, search, webhook, or export. Cross-tenant id → **404**.
 3. **No cross-organisation write.** The project’s organisation must match the session or the **user** the token belongs to.
-4. **Tokens are user credentials**, not an organisation mint path. List / create / revoke at `/api/v1/users/:id/tokens`. A token may name projects the user can already open. A request is still organisation-scoped (cross-tenant → 404).
+4. **Tokens are user credentials.** Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path. A token may name projects the user can already open. A request is still organisation-scoped (cross-tenant → 404).
 5. **Workspaces do not span organisations.**
 6. **Attachments are not public without auth.** Guessed file URL serves nothing to the wrong tenant or a signed-out client. Viewers of **that** project can see the image.
 7. **Invites are project-scoped.** Accepting joins that project (and lists the organisation) without access to other projects.
@@ -125,9 +125,9 @@ Fail QA if a viewer can `POST` a story via the API.
 - Import or export CSV
 - Remove an Owner
 - Create a project (organisation owner only, MVP)
-- Mint a token for another user, or for a project they do not belong to as member/owner
+- No mint-for-another-user. Member cannot mint Owner.
 
-They **can** accept, reject, restart, undo, and create API tokens on **their own user** (`/api/v1/users/:id/tokens`) with a role at or below their own (Member cannot mint Owner). Same `/api/v1` handlers as a session cookie.
+They **can** accept, reject, restart, undo, and mint / list / revoke API tokens on **their own user** (`GET|POST|DELETE /api/v1/users/:id/tokens`) with a role at or below their own (Member cannot mint Owner). Same `/api/v1` handlers as a session cookie. No org-level mint path.
 
 ## Workspaces (Phase 3)
 
@@ -170,7 +170,7 @@ Removing someone from their last project in the organisation removes the organis
 | Velocity strategy (1–4), initial velocity | Project owner | Project |
 | Point scale, bugs-and-chores points, auto-plan Current | Project owner | Project (later slices) |
 | Members and invites | Project owner | Project |
-| API tokens | The user (own tokens). Role at or below their own on selected projects | User (`/api/v1/users/:id/tokens`) |
+| API tokens | The user (own tokens only). Mint / list / revoke: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path | User |
 | Webhooks | Member or owner | Project |
 
 No per-project custom roles. No per-field permissions.

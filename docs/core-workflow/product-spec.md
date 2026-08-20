@@ -54,7 +54,7 @@ Daily: Start the next estimated Feature, check tasks, paste a screenshot, Delive
 
 ### Automation — Grove
 
-Grove is a **client** (CI, a script, or a coding job) that keeps the board current. It authenticates with a **user API token** minted for a Member or Owner at `/api/v1/users/:id/tokens`. It is not a distinct user type.
+Grove is a **client** (CI, a script, or a coding job) that keeps the board current. It authenticates with a **user API token** the Member or Owner minted on their own user at `/api/v1/users/:id/tokens`. It is not a distinct user type.
 
 It needs: a Bearer token (not someone’s password); the **same** `/api/v1/...` story API the app uses; `unestimated` if it tries to Start a Feature without points. Activity is attributed to the **user** the token belongs to.
 
@@ -86,7 +86,7 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 See also [tracker-brief.md](./tracker-brief.md). Short form:
 
 - Email + password and magic link for humans in MVP; SSO later. Session cookie for the app.
-- **User API token** (Bearer): list / create / revoke at `/api/v1/users/:id/tokens`. Each user manages their own. Role at or below their own on the selected projects. Member cannot mint Owner. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. Not org-level.
+- **User API token** (Bearer): mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Same Owner / Member / Viewer permissions as that role. No extra scopes. Activity is attributed to the **user** the token belongs to. No org-level mint path.
 - Roles: Owner / Member / Viewer only. **Any Member or Owner can accept.** Viewers read-only. Requester *should* accept; My Work surfaces Delivered. No accept ACL in MVP. History is undo.
 - Feature/Bug reject → `rejected`; Restart → `started`; stays in Current.
 - Default points Linear 0/1/2/3. Fibonacci 0/1/2/3/5/8 and Powers of 2 later. Custom later and revertible.
@@ -153,7 +153,7 @@ Core: `users`, `projects`, `project_memberships`, `stories` (incl. `requester_id
 
 Planning is a calculation. There is no `iterations` table. Length is **`iteration_length_days`** on the project (default 7). Velocity is live from story timestamps and estimates; it is not persisted. Product language is **user**.
 
-Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens.
+Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens, webhooks.
 
 ## Ordered vertical slices
 
@@ -241,7 +241,7 @@ Acceptance criteria:
 Acceptance criteria:
 
 - Started → Finish → `finished`, stays in Current.
-- Finished → Deliver → `delivered`, stays in Current. Requester sees it in My Work once that slice exists; until then, Delivered is visible in Current.
+- Finished → Deliver → `delivered`, stays in Current. The requester *should* accept; My Work (slice 24) surfaces their Delivered stories.
 - Given `delivered`, when **any** Member or Owner accepts, then state is `accepted`, `accepted_at` is set, and the story **remains in Current** (not Done). Done is empty until that accept ages past the current window.
 - Viewer cannot finish / deliver / accept.
 - Illegal verbs fail and do not change state (finish on unstarted, accept on finished, …).
@@ -280,11 +280,12 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Brand-new project: **cold start**. `velocity` is undefined. Pack uses **initial velocity 10** as estimate-points that fit in a full window. **Current is the head of the ranked list that fits that budget.** Auto-fill estimated unstarted Features from the top, **leaving Current short** rather than putting a story that would exceed 10 into Current.
-- After the first Feature is accepted with both `started_at` and `accepted_at`, the duration model is the only model: `velocity = work / time` from the corpus, and incomplete stories pack by `predicted_duration(estimate)` (mean duration of completed Features of the same estimate; or `estimate / velocity` if that size has no corpus row). Current fills remaining time from `now` to `ends_at`.
+- `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. `predicted_duration` is a size → predicted-duration map; unused on cold start.
+- After Accept, the Feature stays in Current. It does **not** join the corpus yet. Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses `initial_velocity` (default 10) as estimate-points that fit in a full window. **Current is the head of the ranked list that fits that budget.** Auto-fill estimated unstarted Features from the top, **leaving Current short** rather than putting a story that would exceed `initial_velocity` into Current.
+- When `now` crosses `ends_at`, that window is completed; those accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy` (default 3, setting 1–4); then `velocity = work / time` and incomplete stories pack by `predicted_duration(estimate)`. Current fills remaining time from `now` to `ends_at`.
 - Future bands in Backlog are **visual** only — the same `pack` function, not stored rows, not story assignments.
 - Starting a Backlog or Icebox Feature still jumps it to Current and **may** overflow Current.
-- Window **end** (chosen rule): midnight at `starts_on + iteration_length_days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `iteration_length_days` is length in days. Clock crossing only. Accepted stories whose `accepted_at` is now in a completed window age into Done (flat). `velocity` and `predicted_duration` recompute from stories. Lookback is the last number of completed windows set by `velocity_strategy` (default 3, setting 1–4).
+- Window **end** (chosen rule): midnight at `starts_on + iteration_length_days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `iteration_length_days` is length in days. Clock crossing only. Accepted stories whose `accepted_at` is now in a completed window age into Done (flat). `velocity` and `predicted_duration` recompute from stories.
 - A story is never split. If the next Feature’s predicted duration (or bootstrap cost) does not fit remaining budget, it stays in the next Backlog **band**.
 - Reorder, estimate, accept, start, icebox, length change, or window end → plan already recomputed. No Recalculate button.
 - Accepted this window: still in Current until the current window ends. After the window ends: those accepted stories are in Done as a **flat** list (newest accepted first), not grouped by a window row.
@@ -352,10 +353,11 @@ Acceptance criteria:
 
 ### Slice 12b — Member @mentions a teammate and they are notified
 
-Why independently acceptable: an @ reaches a human without Slack.
+Why independently acceptable: an @ in the story description reaches a human without Slack.
 
 Acceptance criteria:
-- `@` in a comment or description that resolves to a project Member, Owner, or Viewer → in-app + email. Unresolved `@` is plain text. Slack out of scope.
+- `@` in the **story description** (and any non-comment surface) that resolves to a project Member, Owner, or Viewer → in-app + email. Unresolved `@` is plain text. Slack out of scope.
+- Comment `@` mentions are slice 13.
 - Email + in-app also for: assigned as owner, delivered (to requester), rejected (to owners).
 - Viewer can be mentioned and still cannot follow, comment, or assign.
 
@@ -369,7 +371,8 @@ Acceptance criteria:
 - Comments have author and timestamp. Empty comments rejected. Description may be empty.
 - Edited mark. Deleted comments tombstoned, not silently erased.
 - Viewer can read, cannot write.
-- Comments table does not exist yet; this slice adds it. `stories.description` already exists.
+- `@` in a comment that resolves to a project Member, Owner, or Viewer → in-app + email. Unresolved `@` is plain text. Same mention rule as slice 12b, now on comments.
+- This slice adds the comments table. `stories.description` already exists.
 
 ### Slice 14 — Member attaches images
 
@@ -488,20 +491,32 @@ Acceptance criteria:
 
 ### Slice 23 — Member or Owner mints a user API token and calls the same story API
 
-**Why independently acceptable:** Grove (or CI, or a script) is a **client with a user token**. It delivers when CI is green, on the same endpoints Luis uses, with a Bearer token.
+**Why independently acceptable:** Grove (or CI, or a script) is a **client with a user token**. It delivers when CI is green, on the same `/api/v1` story machine Luis uses. Cookie vs Bearer is the only auth difference.
 
 Acceptance criteria:
 
-- List / create / revoke on the **user**: `GET|POST|DELETE /api/v1/users/:id/tokens`. Each user manages their own tokens (user settings, not an organisation or project screen). Owner or Member creates a generic **API token** with a role at or below their own on projects they belong to. Member cannot mint Owner. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer.
-- Bearer token. Humans can also use a session cookie. Same `/api/v1` handlers, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. There is no org-level mint path. There is no `unstart` verb.
-- Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`). A Viewer may still create a token on their own user; it can only read.
+- Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Each user manages their own tokens (user settings, not an organisation or project screen). Owner or Member creates a generic **API token** with a role at or below their own on projects they belong to. Member cannot mint Owner. Secret shown once. The token does not add scopes beyond Owner / Member / Viewer. No org-level mint path.
+- Bearer token. Humans can also use a session cookie. Same `/api/v1` story machine, same request bodies, same errors. If the frontend mutates with `POST /api/v1/stories/:id/transitions`, the token uses that same shared machine. Cookie vs Bearer is the only auth difference. There is no `unstart` verb.
+- A Viewer may mint a token on their own user; it can only read. Viewer-bound token cannot mutate (start / finish / deliver / accept / reject / reorder → `forbidden`).
 - Member-bound token **can** accept a delivered Feature (and reject with a reason). Same as a Member with a cookie.
 - Start on unestimated Feature → `unestimated`, no state change (shared machine rule).
 - Illegal transition → `invalid_transition` with `from` and `action`.
 - Icebox Start of an estimated Feature lands `started` in Current — shared Member rule.
 - Revoked token → `unauthorized`.
 - Activity is attributed to the **user** the token belongs to. Token name may appear as `via {token name}`.
-- Webhooks, if registered, are a product feature for any Member/Owner client. Events include story created/updated/reordered, story started/finished/delivered/accepted/rejected/restarted, comment created, window completed, membership changed. Signed outbound POST; delivery is not a command.
+
+### Slice 23b — Member registers a project webhook
+
+**Why independently acceptable:** a client can receive story and membership events without polling. Delivery is not a command.
+
+Acceptance criteria:
+
+- Given I am an Owner or Member on the project, when I create an outbound webhook with a URL, then Flower registers it and shows the signing secret once.
+- Given a registered webhook, when a subscribed event happens, then Flower sends a signed POST to the URL with header `t=<unix>,v1=<hmac-sha256>`.
+- Events: story created, story updated, story reordered, story started, story finished, story delivered, story accepted, story rejected, story restarted, comment created, window completed, membership changed.
+- Given a webhook delivery succeeds or fails, when I look at the board, then no story state, rank, or membership has changed because of that POST. Delivery is not a command.
+- Given I am a Viewer, when I try to register a webhook, then it is rejected (settings page absent; API `forbidden`).
+- Given I am an Owner or Member with a registered webhook, when I revoke it, then further events are not posted.
 
 ### Slice 24 — Member saves a search and opens My Work
 
@@ -580,8 +595,8 @@ Acceptance criteria:
 | Agent | Why they are in |
 | --- | --- |
 | **Reviewer** | Always. Spec is not ready until they agree it is clear, vertical, and testable. |
-| **UI Designer** | Entire product is new UI. Manifesto + **locked** frontend guide. They write `ui.md` (including shortcuts). They do not invent bloom/stem/paper. |
-| **Technical Lead** | Stack, ports, and the core schema are constrained; approach is not. They write `technical-approach.md` and own `api/internal/domain/<domain>` plus the frontend domain split. Tenancy, machines, live updates, **user** API tokens (`/api/v1/users/:id/tokens`), `pack` as a pure function. |
+| **UI Designer** | Entire product is new UI, including slice 23b webhook settings. Manifesto + **locked** frontend guide. They own `ui.md` (including shortcuts). They do not invent bloom/stem/paper. |
+| **Technical Lead** | Stack, ports, and the core schema are constrained; approach is not. They own `technical-approach.md`, `api/internal/domain/<domain>`, and the frontend domain split. Tenancy, machines, live updates, **user** API tokens (`GET|POST|DELETE /api/v1/users/:id/tokens`), `pack` as a pure function. |
 | **Developer** | One slice at a time. Documented PR. |
 | **QA** | Tests each slice from AC plus the companion rule docs. Can fail a slice without a meeting. |
 

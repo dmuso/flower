@@ -14,9 +14,9 @@ The overview must say, in short form:
 - Feature / Bug / Chore / Release have **different** state machines (see [tracker-brief.md](./tracker-brief.md)).
 - `rejected` is not a terminal peer of `accepted`. Reject, then Restart, returns the story to `started` in Current.
 - Any Member can accept. Requester should. Viewers cannot.
-- Velocity is live from completed Feature start/end times (`started_at` → `accepted_at`) plus similar-size predicted duration. Initial velocity 10 is bootstrap. Auto-plan leaves Current short rather than overfill.
+- Velocity is live from completed Feature start/end times (`started_at` → `accepted_at`) plus similar-size predicted duration. Stories accepted in the open window are not in the lookback. Until at least one corpus Feature exists in a completed window (or `time == 0`), `velocity` is undefined and pack uses initial velocity 10. Auto-plan leaves Current short rather than overfill.
 - Windows are **computed** (length in days). Flower does not persist Tracker-style iteration records as the plan.
-- Tokens are **user-scoped** (`/api/v1/users/:id/tokens`).
+- Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path.
 - Point the reader at the feature folders below for the exhaustive rules.
 
 Do not blindly overwrite overview with this whole spec. Keep overview as the one-page intent; make it match the rules above.
@@ -76,4 +76,4 @@ UK / AU / NZ in docs and in new identifiers: `organisations`, not `organizations
 When these drafts land in the repo:
 
 - Index `docs/core-workflow/domain-model.md` from `docs/README.md` and `docs/product/spec-set.md`.
-- Do not add an org-level token mint path.
+- Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path.

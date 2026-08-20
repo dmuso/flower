@@ -19,7 +19,7 @@ These are Tracker. Do not “improve” them in MVP.
 - **Unstarted cannot be dragged above started.**
 - **Estimate to Start a Feature.** `0` is a valid estimate. Bugs and chores are unestimated by default and do not count toward velocity.
 - **Auto-plan.** Pack Current toward velocity; **leave Current short** rather than overfill with the next story. Start on a Backlog or Icebox story still jumps it to Current (may overflow). Re-plan live on estimate, order, accept, velocity, length.
-- **Velocity.** Live rate from completed Features’ `started_at` → `accepted_at`. Lookback = last number of completed windows set by `velocity_strategy` (default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the **same estimate**. **Initial velocity 10** is bootstrap (estimate-points that fit in a full window) while the corpus is empty.
+- **Velocity.** Live rate from completed Features’ `started_at` → `accepted_at`. Lookback = last number of completed windows set by `velocity_strategy` (default 3, setting 1–4). Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses **initial velocity 10** as estimate-points that fit in a full window. Incomplete stories pack by `predicted_duration(estimate)` of completed stories with the **same estimate**.
 - **Any Member can accept.** Owner / Member / Viewer only. Requester *should* accept; My Work surfaces their Delivered. No accept ACL in MVP. History is undo.
 - **Owners: maximum 5.** Start assigns the clicker as an owner. Requester and owners auto-follow and cannot unfollow.
 - **Tasks** are unowned, unpointed checklists. Incomplete tasks **warn** on Accept; they do not hard-block.
@@ -36,7 +36,7 @@ Tracker got these wrong, or the world changed. We are explicit.
 | Tracker | Flower |
 | --- | --- |
 | Persisted iteration records as the plan; stories assigned to an iteration | **Computed windows only.** Length in days (default 7) on the project. `pack` is a pure function. No iteration row, no story→window assignment. |
-| API token acts as the human who minted it | **User API tokens** (Bearer) at `/api/v1/users/:id/tokens`. Same `/api/v1` as the app (cookie or Bearer, same handlers). Role at or below the user’s own (Member cannot mint Owner). No extra scopes. Activity is the **user**. |
+| API token acts as the human who minted it | **User API tokens** (Bearer). Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Same `/api/v1` as the app (cookie or Bearer, same handlers). No extra scopes. Activity is the **user**. No org-level mint path. |
 | “Bugs and chores may be estimated” could not be turned off | Same toggle is later, and it is **reversible**. |
 | Custom point scale could not be reverted | Custom scale is later and **must be revertible**. Fibonacci (`0,1,2,3,5,8`) and Powers of 2 (`0,1,2,4,8`) are later project settings. |
 | No first-class organisation tenant in the way we need | **Organisations** (UK spelling) are the tenant. Multitenant from day one. |

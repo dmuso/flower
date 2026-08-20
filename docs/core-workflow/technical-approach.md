@@ -182,7 +182,8 @@ Use `features/` for board, story, and planning. Keep auth/session helpers in `li
 | 2–6 Stories | board + story | `features/story/` | `stories.ts` |
 | 7 Rank | — | board/story state | same `stories.ts` (reorder endpoint) |
 | 8 Planning | board headers | `features/planning/` (render pack fields) | `stories.ts` + pack fields on the story/project payload |
-| 23 Tokens | user settings | page-only is enough | `users.ts` (mint / list / revoke) |
+| 23 Tokens | user settings | page-only is enough | `users.ts` (mint / list / revoke own user) |
+| 23b Webhooks | project settings | page-only | `webhooks.ts` |
 
 The SPA **does not recompute** velocity. It draws Icebox / Backlog / Current / Done from stories plus pack fields the API already calculated (velocity, band, dates). There is no `board` domain and no `/board` API. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
 
@@ -343,21 +344,21 @@ A generic **API token** (Bearer `flr_...`) is a **user credential**, not an iden
 Mint, list, and revoke on **that user**. There is no organisation-collection token API and no org-level grants table.
 
 ```
-POST /api/v1/users/:id/tokens
+GET    /api/v1/users/:id/tokens
+POST   /api/v1/users/:id/tokens
 { "name": "CI", "role": "member" }
 
-GET  /api/v1/users/:id/tokens
-POST /api/v1/users/:id/tokens/:token_id/revoke
+DELETE /api/v1/users/:id/tokens/:token_id
 ```
 
-`:id` is the user the credential belongs to. Default that user is the minter (you mint for yourself). An Owner may mint for another user in the same organisation; the grant must still be at or below the minter **and** at or below that user’s own project memberships. Member cannot mint Owner. Viewer cannot mint, list secrets, or revoke.
+`:id` is the authenticated user. Mint / list / revoke only on your own user. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No organisation-collection token API.
 
 ```
 api_tokens
   id UUID PK
   user_id → users RESTRICT            -- who the token authenticates as
   organisation_id → organisations RESTRICT   -- bound to one organisation
-  created_by_user_id → users RESTRICT -- the minter
+  created_by_user_id → users RESTRICT -- the minter (always the same user)
   name VARCHAR(255) NOT NULL
   role VARCHAR(20) NULL               -- optional cap: owner | member | viewer
   token_prefix VARCHAR(16) NOT NULL
@@ -369,7 +370,7 @@ api_tokens
 Role:
 
 - If `role` is omitted, the token uses that user’s project memberships (and org-owner elevation) as-is.
-- If `role` is set, it is a cap at or below the minter’s effective role. Member cannot assign `owner`. The token cannot exceed the target user’s own memberships.
+- If `role` is set, it is a cap at or below the minter’s effective role. Member cannot assign `owner`. The token cannot exceed that user’s own memberships.
 - Effective role on a request = the user’s membership (or org-owner elevation), then the optional cap. No scope list.
 
 Returns the token (id, name, user, optional role) and the raw secret **once**. List shows prefix + name, never the secret. Revoke is immediate (next call → `unauthorized`). Secret format: `flr_<random>`. Store hash only.
@@ -380,7 +381,7 @@ Activity is attributed to the user the token authenticates as (`activities.user_
 
 Typical CI token named `"CI"` with cap **Member** (or a Member user’s memberships) can start / finish / deliver **and** accept / reject. Viewer cap is read-only.
 
-Token handlers live in `domain/user`. Slice 23 is the independently acceptable mint + webhook story; Bearer auth must work as soon as transitions are tested.
+Token handlers live in `domain/user` (slice 23). Webhooks are slice 23b, a separate story. Bearer auth must work as soon as transitions are tested.
 
 Create story: **one API**. Omitted `story_type` may default to Feature. `requester_id` is the authenticated user and must be a Member / Owner. Default icebox if panel omitted.
 
@@ -425,19 +426,19 @@ The only stored settings are `projects.iteration_length_days`, start weekday, ti
 
 Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change. Stories do not store which band they are in.
 
-Normative formula text: `velocity-and-planning.md` (PO rewriting). This file states the implementer shape only. No Recalculate button.
+Normative formula text: `velocity-and-planning.md`. This file states the implementer shape only. No Recalculate button.
 
 **Window clock:** calendar windows that end at midnight, project timezone. Length is `iteration_length_days`. First start = configured weekday on or before project-created date. Each window is half-open `[starts_on, ends_at)` where `ends_at = starts_on + iteration_length_days` at 00:00 in that timezone. Current window = the unique window containing `now`. Changing length / timezone / weekday replans immediately. **Window end** is a clock crossing, not a write.
 
 **Velocity** (live, `domain/planning`): calculated from previous Features’ **start/end datetimes** (`started_at` → `accepted_at`). Not a sum of estimates in a window. How those durations roll up, and how velocity_strategy applies, is the velocity doc.
 
-**predicted_duration(estimate)** for each incomplete story: from completed Features of the **same estimate** (`predicted_duration(estimate)`). Pack fills the current window using velocity plus those predicted durations, in rank order:
+A story accepted in the **open** window is not in the lookback. Velocity stays undefined (`pack` uses `initial_velocity` 10) until at least one corpus Feature exists in a **completed** window. When `now` crosses `ends_at`, those accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy`; then velocity = work / time and `pack` uses `predicted_duration(estimate)`.
+
+**predicted_duration** is a size → predicted-duration map, built from completed Features of the **same estimate**. Unused on cold start. Pack fills the current window using velocity plus those predicted durations, in rank order:
 
 ```
-pack(ordered_stories, velocity, iteration_length_days, now, timezone) -> bands
+pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands
 ```
-
-**Cold start:** until at least one Feature has both `started_at` and `accepted_at`, `pack` treats `initial_velocity` as estimate-points that fit in a window. After that first completed Feature, the duration model takes over.
 
 `started_at` is set on the first successful Start only; reject / restart do not clear it (same as cycle time).
 
@@ -531,7 +532,7 @@ Serve only via authenticated `GET /api/v1/attachments/:id` (effective role ≥ v
 
 Validate type by sniffed bytes, not only extension. Over 10 MB or 21st image → `validation_failed`.
 
-### Outbound webhooks (slice 23)
+### Outbound webhooks (slice 23b)
 
 Webhooks are outbound project hooks (not a command API):
 
@@ -633,11 +634,11 @@ Stories:
 - `POST /api/v1/stories/:id/transitions`
 - `POST /api/v1/projects/:id/stories/reorder`
 
-User tokens (slice 23; design now so authz stays one model):
+User tokens (slice 23):
 
-- `POST /api/v1/users/:id/tokens`
-- `GET  /api/v1/users/:id/tokens`
-- `POST /api/v1/users/:id/tokens/:token_id/revoke`
+- `GET    /api/v1/users/:id/tokens`
+- `POST   /api/v1/users/:id/tokens`
+- `DELETE /api/v1/users/:id/tokens/:token_id`
 
 Story payload must include id, title, type, state, estimate, rank, revision, pack band, current-window `ends_on`, reject_reason if rejected, owners. Do not invent extra product fields. Do not add a `/board` resource.
 
@@ -664,7 +665,6 @@ Only what a slice cannot ship without. No drive-by.
 - GraphQL.
 - A second workflow engine or `planned` state (only if the manual-planning slice needs it).
 - Extracting a microservice, adding Redis, or adding a queue product for Phase 0.
-- “Fixing” Icebox into a sequential stage to match the old root README.
 - Changing Flower ports (8180 / 4273 / 5433 / 5437) or the locked look.
 - Inventing `api/internal/wire/` or dumping use-cases into `app/`.
 - Persisting Current / next / later as rows, or adding a story window foreign key.
@@ -686,7 +686,6 @@ Only what a slice cannot ship without. No drive-by.
 | Webhook retry storms | At-least-once | Cap attempts (implementation: 8, exponential backoff); `event_id` for receiver idempotency; do not POST back as a user |
 | Magic link / invite token leak | Email and logs | Store hashes only; single-use; 14-day invite; do not log raw tokens |
 | Clock skew vs project timezone | Rollover definition is midnight **project** timezone | Store timezone; default `Australia/Melbourne`; all comparisons via `Clock` + that timezone |
-| Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Implementers will follow the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
 | Dummy `password_hash` for magic-link users | Hidden branch, forbidden by AGENTS.md | Nullable column; password login refuses NULL |
 | Greenfield org on project | Slice 0 | `projects.organisation_id` is NOT NULL in the intended schema |
 | Unique rank violation under concurrent drag | Two Members reorder | `revision` + one retry; then `conflict`; UI snaps back |
@@ -838,12 +837,12 @@ Normative tests = velocity doc worked examples 1–3 **and** its QA short script
 - Never split.
 - Start a Backlog Feature that did not fit → Current, points may exceed 10, over-velocity badge.
 - Accept one Feature → still Current, not Done.
-- Advance test clock past window `ends_at` project timezone → that Feature in Done (flat list, newest accepted first); velocity is duration-based from `started_at` → `accepted_at`. Until the first Feature has both timestamps, pack uses `initial_velocity` as points that fit.
+- Advance test clock past window `ends_at` project timezone → that Feature in Done (flat list, newest accepted first). Accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy`; then velocity = work / time and pack uses `predicted_duration(estimate)`.
 - Reorder / estimate / accept / start / icebox / length change → board already recomputed. No window id written on the story.
 - Owner sets `iteration_length_days` to 14 → dates and pack change; velocity recomputes from durations.
 - Icebox never auto-fills into Current.
 - Oversized Feature (predicted_duration(estimate) exceeds the current window): next empty window, over-capacity exception (velocity doc).
-- Cold start (no Feature with `started_at` + `accepted_at`) → pack uses `initial_velocity` as points that fit.
+- Cold start (no corpus Feature in a completed window) → velocity stays undefined; pack uses `initial_velocity` 10; `predicted_duration` unused. A Feature accepted in the open window does not enter the lookback.
 - Bugs/chores/releases not required; when present later they follow the velocity doc.
 
 **QA**
@@ -871,9 +870,10 @@ From `multitenancy.md`: same title in org A and B, search/list only A; A fetches
 | 18 types | Same machine package; Bug start without points; Chore finish=accept; Release colour vs **starts_on** of the calculated window |
 | 19 epics | Purple label; independent order; progress Feature points only |
 | 20 dates | Calculated window `ends_on`; Icebox “Not scheduled”; no plan-overriding picker |
-| 21 charts | Bars from the same duration model; empty / cold-start: velocity line “initial 10” |
+| 21 charts | Bars from the same live velocity calculation; empty / cold-start: velocity line “initial 10” |
 | 22 search | Operators as specified; Done excluded unless `includedone:` |
-| 23 API tokens / webhooks | Mint on `POST /api/v1/users/:id/tokens`. Bearer start/finish/deliver/accept as Member. Viewer cap `forbidden` on mutations. Member cannot mint Owner. Token whose user cannot open project B → 404. Webhooks are outbound project hooks. |
+| 23 API tokens | Mint / list / revoke only on your own user: `GET` / `POST` / `DELETE` `/api/v1/users/:id/tokens`. No mint-for-another-user. Bearer start/finish/deliver/accept as Member. Viewer may mint a token on their own user; it can only read. Member cannot mint Owner. Token whose user cannot open project B → 404. |
+| 23b Webhooks | Outbound project hooks. Not part of the mint slice. |
 | 24 My Work / saved search | Owner/requester rules as specified |
 | 25 workspaces | One organisation; not a permission boundary |
 | 26 CSV | Owner only (assumption); create-only, all-or-nothing |
@@ -920,7 +920,7 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 **Feature flags and compatibility**
 
 - No flags to hide Icebox, velocity, or accept-by-any-Member.
-- Greenfield compatibility: old overview is wrong; do not keep `rejected` as a terminal peer to “match” it.
+- Do not treat `rejected` as a terminal peer of accepted.
 - Cookie session and Bearer share machines and rank rules.
 
 **Authz checklist (every mutating handler)**
@@ -949,12 +949,12 @@ These are not new product rules. Product remains unspecified where marked.
 | Icebox vs one rank | Assumed two lists (fork 4) | `rank_list` + unique `(project_id, rank_list, rank)` |
 | Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
 | Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
-| HTTP prefix | Existing README | **`/api/v1`** mount; same bodies and errors for session and Bearer; no second `/v1` tree |
+| HTTP prefix | Locked | **`/api/v1`** mount; same bodies and errors for session and Bearer; no second `/v1` tree |
 | Create-story `story_type` | Shared contract | One API; omitted `story_type` may default to Feature (UI also posts Feature) |
 | Create-story `requester_id` | Product: requester is a Member/Owner | `requester_id` is the authenticated user (session or Bearer) and must be a Member / Owner |
 | Create-story `panel` | Product: default add is Icebox | Omitted `panel` → `icebox` for every user |
-| Token mint path + role-cap | Dan + this file | `POST /api/v1/users/:id/tokens` (list + revoke on the same user). Role = that user's project memberships, or an optional cap on `api_tokens.role` at or below the minter. Member cannot mint Owner. Viewer cannot mint. Token is a user credential, not an identity type. No org-collection token routes. No grants table (cap is a column). |
-| Planning persistence | Dan | None. Settings + live duration velocity + `pack` (predicted durations by estimate). Cold start: `initial_velocity` as points that fit until one Feature has `started_at` + `accepted_at`. |
+| Token mint path + role-cap | This file | `GET` / `POST` / `DELETE` `/api/v1/users/:id/tokens` only on your own user. No mint-for-another-user. Role = that user's project memberships, or an optional cap on `api_tokens.role` at or below the minter. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Token is a user credential, not an identity type. No org-collection token routes. No grants table (cap is a column). |
+| Planning persistence | This file | None. Settings + live duration velocity + `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. Velocity stays undefined until at least one corpus Feature exists in a completed window (`pack` uses `initial_velocity` 10; `predicted_duration` unused). A story accepted in the open window is not in the lookback. |
 | Undo | Product-spec: Owner, Member on latest state change | Same for session or Bearer. Not “own last change only”. |
 | Human session mechanism | Unspecified | Server-side cookie sessions |
 | Live transport | Unspecified | SSE + in-process bus, slice 17 |
@@ -974,7 +974,6 @@ If Dan answers a fork, update this file in the same PR as the code change. Do no
 
 - This file
 - `domain-model.md` (where code goes; bounded contexts)
-- `STRUCTURE-FROM-LAYOUT.md` (house directories)
 - `product-spec.md` (the slice you are in, plus machines)
 - `velocity-and-planning.md` if the slice touches the plan (3, 4, 7, 8, 18, 20, 21, 30)
 - `multitenancy.md` if the slice touches authz (0, 1, 23, 25)

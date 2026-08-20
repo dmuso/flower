@@ -6,7 +6,7 @@ Local draft: `/workspace/flower-spec/domain-model.md`
 
 Change name: `flower`
 
-Implementer map: what each domain owns and what it must not own. Slice order stays in `product-spec.md`. Packing math stays in `velocity-and-planning.md`. Directory shape stays in `STRUCTURE-FROM-LAYOUT.md` and `technical-approach.md`.
+Implementer map: what each domain owns and what it must not own. Slice order stays in `product-spec.md`. Packing math stays in `velocity-and-planning.md`. Directory shape stays in `technical-approach.md`.
 
 One domain package = one bounded context = one vertical slice of HTTP + service + persistence. Entity types live in that domain (`types.go`). The repository interface lives next to its postgres implementation. Domains do not import each other; shared contracts go in `ports/`. `platform/` never contains story, planning, or tenancy rules. `app/` wires lifecycle. `handlers/` registers routes. There is no `internal/wire/` package.
 
@@ -18,9 +18,9 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 ## user
 
-**Owns:** the `users` row, signup / login / magic link / email verify, server-side sessions, and API tokens (`POST` / `GET` / revoke `/api/v1/users/:id/tokens`).
+**Owns:** the `users` row, signup / login / magic link / email verify, server-side sessions, and API tokens (`GET` / `POST` / `DELETE` `/api/v1/users/:id/tokens`).
 
-**Invariants:** a token authenticates as `api_tokens.user_id`. It is not a login identity. Role is that user’s project memberships (or an optional cap ≤ minter). Member cannot mint Owner. Viewer cannot mint. No organisation-collection token API.
+**Invariants:** a token authenticates as `api_tokens.user_id`. It is not a login identity. Mint / list / revoke only on your own user (`GET` / `POST` / `DELETE` `/api/v1/users/:id/tokens`). No mint-for-another-user. Role is that user’s project memberships (or an optional cap ≤ minter). Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No organisation-collection token API.
 
 **Must not own:** organisations, stories, planning, webhooks.
 
@@ -59,15 +59,15 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 ## planning
 
-**Owns:** two pure functions — `velocity(...)` and `pack(ordered stories, velocity, iteration_length_days, now, timezone)` — and the computed window dates. Nothing persisted.
+**Owns:** two pure functions — `velocity(...)` and `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands` — and the computed window dates. Nothing persisted. `predicted_duration` is a size → predicted-duration map; unused on cold start.
 
 **Invariants:** planning / velocity is a **calculation**. There is no Iteration entity. The only stored settings are project `iteration_length_days`, start weekday, timezone, `velocity_strategy`, and `initial_velocity`. Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change.
 
 **Velocity** is duration-based. It is calculated from completed Features’ **start/end datetimes** (`started_at` → `accepted_at`), not from summing estimates in a window. Exact rollup (including how velocity_strategy is applied) lives in `velocity-and-planning.md`.
 
-**predicted_duration(estimate)** for an incomplete story: from completed Features of the **same estimate** (`predicted_duration(estimate)`). What is projected to finish in the current window is velocity plus those predicted durations, packed in rank order. We accept stories, not points.
+A story accepted in the **open** window is not in the lookback. Velocity stays undefined (`pack` uses `initial_velocity` 10) until at least one corpus Feature exists in a **completed** window. When `now` crosses `ends_at`, those accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy`; then velocity = work / time and `pack` uses `predicted_duration(estimate)`.
 
-**Cold start:** until one Feature has both `started_at` and `accepted_at`, `pack` uses `initial_velocity` as estimate-points that fit in a window. After that, the duration model takes over.
+**predicted_duration** is a size → predicted-duration map, built from completed Features of the **same estimate**. Unused on cold start. What is projected to finish in the current window is velocity plus those predicted durations, packed in rank order. We accept stories, not points.
 
 **Window end** is a clock crossing, not a write.
 
