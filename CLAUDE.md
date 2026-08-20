@@ -83,9 +83,6 @@ Copy `.env.example` to `.env` and adjust values for your machine. Treat `.env.ex
 4. **Real Implementations**: Never introduce placeholder or "fake" code paths—tests must exercise the same production-grade logic as runtime code with no exceptions.
 5. Store AI planning docs in `docs/` directory
 
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
 - ❌ Do NOT clutter repo root with planning documents
 
 ## References
