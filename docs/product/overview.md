@@ -2,54 +2,73 @@
 
 Flower is a task management workflow tool in the spirit of [Pivotal Tracker](https://www.pivotaltracker.com/).
 
-The unit of work is a **story**. Teams plan by ranking stories, estimating them, and moving them through a small set of panels that match how software actually gets delivered.
+The unit of work is a **story**. Teams plan by ranking stories, estimating them, and letting velocity fill Current and future visual bands. There is no milestone-date picker that overrides the plan. There is no persisted iteration record as the plan.
+
+This page is the one-page intent. Exhaustive rules live in the spec set (see [How to read the spec set](spec-set.md)). If this page and the spec set disagree, the spec set wins.
 
 ## Core ideas
 
-- **Projects** contain the stories, iterations, labels, and membership for one team.
+- **Organisations** are the tenant. They contain projects and membership.
+- **Projects** contain the stories, labels, membership, and planning settings (length in days, timezone, velocity) for one team.
 - **Stories** are the work. A story has a type (feature, bug, chore, release), an estimate, a requester, owners, labels, and a state.
-- **Icebox** holds stories that are not yet scheduled.
-- **Backlog** is the ranked queue of stories that will be scheduled next.
-- **Current** is the iteration currently in flight.
-- **Done** is accepted work from recent iterations.
-- **Iterations** are time-boxed planning windows. Velocity is derived from accepted points, not entered as a target.
-- **Labels** group stories across the board.
-- **Activity** records what changed, who changed it, and when.
+- **Icebox** is an **unscheduled holding pen**. You pull from it into the ranked list. It is not a sequential stage on the way to Done, and it is not in the velocity math.
+- **Backlog** is the ranked queue: later **computed bands** of one ordered list. Position is priority. Bands are visual, not stored rows.
+- **Current** is this window: the head of the ranked list that fits this window’s velocity, plus in-progress work and stories accepted *this* window.
+- **Done** is accepted work that has **aged past the current window**. Flat list, newest accepted first. Accepted stories stay in Current until the window ends at midnight in the project timezone.
+- **Windows** are computed from length in days (default 7), start weekday, now, and timezone. Velocity is a live rate from completed Features’ `started_at` → `accepted_at`. Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses `initial_velocity` (default 10) as estimate-points that fit in a full window. Incomplete stories pack by `predicted_duration(estimate)`. Auto-plan leaves Current short rather than overfilling with the next story. Starting a story may overflow Current. Stories are not assigned to a window row.
+- **Labels** group stories. An epic is one purple label plus an independent epic order, not a parent ticket.
+- **Activity** records what changed, **who** (the user) changed it, and when. History is undo.
 
-## Story states
+## Story types and state machines
 
-Stories move through a linear workflow. The API owns these values as strings; they are not database enums.
+Types have **different** machines. The API owns these values as strings; they are not database enums.
 
-| State | Meaning |
-| --- | --- |
-| `unscheduled` | In the icebox. |
-| `unstarted` | Ranked in the backlog or current iteration, not started. |
-| `started` | Someone is working on it. |
-| `finished` | Implementation is complete. |
-| `delivered` | Ready for acceptance. |
-| `accepted` | The requester accepted the work. |
-| `rejected` | The requester sent it back. |
+### Feature and Bug
 
-## Story types
+`unscheduled` → `unstarted` → `started` → `finished` → `delivered` → `accepted` or `rejected`.
 
-| Type | Meaning |
-| --- | --- |
-| `feature` | User-facing work, estimated in points. |
-| `bug` | Defect. Unestimated unless the project requires it. |
-| `chore` | Supporting work. Unestimated. |
-| `release` | A marker in the backlog, not a unit of work. |
+Reject, then **Restart**, returns the story to `started`. It stays in Current. `rejected` is not a terminal peer of `accepted`.
+
+A Feature cannot be started without an estimate (`0` is a valid estimate). Bugs are unestimated by default and may start without points. Bug points do not count toward velocity.
+
+### Chore
+
+`unscheduled` → `unstarted` → `started` → `accepted`. Finish *is* accept. No delivered, no reject. Unestimated. Does not count toward velocity.
+
+### Release
+
+A marker, not work. Auto-started when created or dragged into Backlog. Finish → accepted. Optional target date. Place the marker at the **end** of that milestone’s stories. Blue if the **computed window** containing the marker starts on or before the target; red if that window starts after the target.
+
+## Who can accept
+
+Roles are Owner, Member, Viewer. **Any Member or Owner can accept.** The requester *should*. Viewers are read-only. There is no accept ACL in MVP. History undoes a mistake.
+
+The HTTP API is the same for the app and for tokens. Humans use a session cookie or a Bearer **user API token**. Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. No org-level mint path.
 
 ## What the core schema covers
 
-The first migration creates:
+Core tables:
 
 - `users`
 - `projects`
 - `project_memberships`
-- `iterations`
 - `stories`
 - `labels`
 - `story_labels`
 - `activities`
 
-Business rules (allowed state transitions, who can accept a story, how ranking works) belong in the Go API, not in the database.
+Planning is a calculation. There is no `iterations` table. Stories are not assigned to a window. Length is **`iteration_length_days`** on the project. Velocity is live from story timestamps and estimates; it is not persisted. `activities.user_id` is the user who did the thing.
+
+Business rules (allowed state transitions, who can accept a story, how ranking and `pack` work) belong in `api/internal/domain/<domain>`, not in the database. See [domain-model.md](../core-workflow/domain-model.md).
+
+## Spec set
+
+- [How to read the spec set](spec-set.md)
+- [Tracker: copy exactly vs modernise](tracker-brief.md)
+- [Product spec (slices + acceptance criteria)](../core-workflow/product-spec.md)
+- [Domain model](../core-workflow/domain-model.md)
+- [UI](../core-workflow/ui.md)
+- [Technical approach](../core-workflow/technical-approach.md)
+- [Velocity and planning](../velocity-planning/velocity-and-planning.md)
+- [Multitenancy](../multitenancy/multitenancy.md)
+- [Open questions](open-questions.md)

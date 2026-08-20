@@ -2,7 +2,7 @@
 
 A monorepo for Flower, a task management workflow tool in the spirit of Pivotal Tracker.
 
-Stories move through icebox, backlog, current iteration, and done. The product is built as a Go API, a SolidJS frontend, and PostgreSQL.
+Stories live in Icebox until pulled into a ranked backlog; Current is this iteration; Done is accepted work from completed iterations.. The product is built as a Go API, a SolidJS frontend, and PostgreSQL.
 
 ## Project Structure
 
