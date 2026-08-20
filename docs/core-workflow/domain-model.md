@@ -53,31 +53,25 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 **Invariants:** Feature start requires estimate (`0` allowed). Icebox Start is `unscheduled` → `started`. No `unstart`. `PATCH` does not write `state`. Member/Owner may accept/reject. Rank is `VARCHAR(64)` fractional. Icebox and ranked lists are independent. Unique `(project_id, rank_list, rank)`. Stories do not store which window or band they are in.
 
-**Must not own:** velocity math, window end, organisation tenancy, tokens. Must not persist a story → window link. Must not FK stories to `velocity_samples`.
+**Must not own:** velocity math, organisation tenancy, tokens. Must not persist a story → window link. Accepting a Feature sets `accepted_at`; it does not store points.
 
 ---
 
 ## planning
 
-**Owns:** the pack function, velocity formula, window-end writer for `velocity_samples`, computed window dates.
+**Owns:** two pure functions — `V(...)` and `pack(ordered stories, V, L, now, TZ)` — and the computed window dates. Nothing persisted.
 
-**Invariants:** planning / velocity is a **calculation, not an Iteration aggregate**. There is no Iteration entity. The only length setting is project `iteration_length_days`. Bands (`current` / `next` / `later`) are recomputed whenever velocity, order, or estimates change. Stories do not point at samples.
+**Invariants:** planning / velocity is a **calculation**. There is no Iteration entity. The only stored settings are project `iteration_length_days`, start weekday, timezone, `velocity_strategy` (K), and `initial_velocity`. Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change.
 
-```
-velocity_samples
-  project_id
-  organisation_id
-  starts_on DATE
-  ends_on DATE
-  accepted_feature_points INTEGER
-  UNIQUE (project_id, starts_on)
-```
+**V** is duration-based. It is calculated from completed Features’ **start/end datetimes** (`started_at` → `accepted_at`), not from summing estimates in a window. Exact rollup (including how K is applied) lives in `velocity-and-planning.md`.
 
-Written at window end. Pack never assigns a story to a sample row. Done is a flat list of accepted stories whose `accepted_at` has aged past the current window (newest accepted first).
+**Predicted duration** for an incomplete story: from completed Features of the **same estimate**. What is projected to finish in the current window is V plus those predicted durations, packed in rank order. We accept stories, not points.
 
-**Must not own:** story machine, rank, HTTP for transitions, token mint.
+**Cold start:** until one Feature has both `started_at` and `accepted_at`, `pack` uses `initial_velocity` as estimate-points that fit in a window. After that, the duration model takes over.
 
----
+**Window end** is a clock crossing, not a write.
+
+**Must not own:** story machine, rank, HTTP for transitions, token mint. Must not persist V, window totals, or accepted points.
 
 ## activity
 
@@ -103,7 +97,7 @@ Written at window end. Pack never assigns a story to a sample row. Done is a fla
 | attachment | Files + auth GET | Not a public URL |
 | webhook | Outbound project hooks | Delivery is not a command |
 | search | Operators | Does not change rank |
-| chart | Completed bars from `velocity_samples` | Read-only |
+| chart | Completed bars from the same live V sums | Read-only |
 
 ---
 
@@ -111,7 +105,7 @@ Written at window end. Pack never assigns a story to a sample row. Done is a fla
 
 | Not a domain | Why |
 | --- | --- |
-| Iteration / time-box table | Planning is a calculation. Bands + `velocity_samples` + `iteration_length_days`. |
+| Iteration / time-box table | Planning is a calculation. Settings + `pack` + live V. |
 | Board | A **frontend projection**. The API returns stories plus pack fields (V, bands, dates). The SPA draws Icebox / Backlog / Current / Done. No `board` domain package. No `/board` API. |
 | API token as an identity type | Token is a user credential on `user`. |
 | `app/` use-case packages | `app/` is lifecycle + wiring only. |

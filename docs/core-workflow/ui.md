@@ -324,7 +324,7 @@ Flower fills what it can. The human types what only a human knows.
 | Estimate | Unestimated. `0` is a value only if they pick it | 0 / 1 / 2 / 3 on a Feature before Start |
 | Band / projected date | Planner assigns from velocity + rank + length in days. Live. | Never a due-date picker. Never “iteration 3”. |
 | Current membership | Auto-plan up to V, leave short | Start (may overflow). No drag-to-Current |
-| Velocity | Initial 10, then rolling average | Owner may set initial V and strategy 1–4 in settings |
+| Velocity | Live from completed-story durations; initial 10 is bootstrap | Owner may set initial V and strategy 1–4 in settings |
 | Iteration length | **Days** (default 7) | Owner may set length in days. Not a stored list. |
 | Timezone | Store; default `Australia/Melbourne` | Owner setting, not a signup field |
 | Icebox vs Backlog on create | Icebox | Pull to Backlog, or add-in-Backlog as a quieter column action |
@@ -699,7 +699,7 @@ Icebox reorder is independent.
 - Secondary: iteration **length in days** in project settings (Owner). Default 7. Changing length replans live. No Recalculate. No iteration objects.
 - Current header: `6 / 10` · `Ends 9 Aug` (computed). Over: `11 / 10` + badge `Over velocity`.
 - Accepted in this window: still in Current.
-- When accepted work ages past the current window: those rows sit in Done as a **flat list** (no `Ended {date}` groups). V updates from accepted Feature points (rolling last 3 windows, setting 1–4).
+- When accepted work ages past the current window: those rows sit in Done as a **flat list** (no `Ended {date}` groups). V updates from completed-story durations (`started_at` → `accepted_at`) over the last K completed windows (default 3, setting 1–4).
 
 | State | Copy | Next |
 | --- | --- | --- |
@@ -963,12 +963,12 @@ Tracker epics are purple. The guide has no purple. **Do not invent a purple hex.
 **Screen:** `Charts` (settings or a quiet AppBar link). Viewers can see.
 
 - One next action: **read**, then back to the board (`Esc` / `Back to the board`).
-- Velocity: bar per **completed window** (computed, not a stored iteration); line at V. While N = 0, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
-- Burn-up: cumulative accepted Feature points vs scoped Feature points (window snapshots + live now).
+- Velocity: bar per **completed window**, derived from completed-story durations in that window; line at V. While the corpus is empty, line label `Initial 10`. Current is not a completed bar. Optional faint “accepted so far”.
+- Burn-up: cumulative accepted Feature estimates vs scoped Feature estimates, derived from stories (live now).
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty velocity | `No completed windows yet.` | `Back to the board` |
+| Empty velocity | `No completed stories yet.` | `Back to the board` |
 | Empty burn-up | `No scope yet.` | Add estimated Features |
 | Success | Real bars only | — |
 

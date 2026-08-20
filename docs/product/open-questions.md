@@ -25,9 +25,9 @@ If Dan does not answer, the “we assume” side ships.
 - Icebox is unscheduled, in the product from MVP, not a sequential stage.
 - One ordered list; unstarted cannot be dragged above started.
 - Auto-plan leaves Current short rather than overfill; Start may overflow Current.
-- Initial velocity **10** until one **window** completes.
-- Velocity strategy last 3 completed **windows**, setting 1–4.
-- Velocity formula in MVP: accepted **Feature** points only. Team strength % later.
+- Initial velocity **10** is bootstrap only: pack uses it as estimate-points that fit in a full window while the corpus is empty (or `time == 0`).
+- Velocity strategy `K` = last 3 completed **windows**, setting 1–4. Lookback for the corpus.
+- Velocity is live duration: `V_rate = work / time` from completed Features (`started_at` → `accepted_at`). Incomplete stories pack by `pred(E)` from completed stories of the same estimate. Team strength % later.
 - Any Member can accept. No accept ACL. Requester should. My Work surfaces Delivered.
 - Owners max 5. Start assigns the clicker. Requester + owners auto-follow and cannot unfollow.
 - Tasks unowned, unpointed; warn on Accept.
@@ -50,8 +50,8 @@ If Dan does not answer, the “we assume” side ships.
 ### Planning (locked)
 
 - Length is **days** (default 7), stored on the project as `iteration_length_days`. Not 1–4 weeks. Not a stored list of windows.
-- `pack` is a pure function of (ordered stories, velocity, length in days, now, timezone). Stories are not assigned to a window row.
-- There is no `iterations` table. Accepted-points history lives in `velocity_samples`.
+- `pack` is a pure function of (ordered stories, pred, `V_rate`, length in days, now, timezone). Stories are not assigned to a window row.
+- There is no `iterations` table. Nothing is stored for velocity except story timestamps, estimate, and project settings. Planning is live duration + similar-size pred.
 - Accepted stays in Current until the current window ends (midnight at `starts_on + L days`, project TZ). Done is a flat aged-accepted list.
 
 ### Scope
@@ -94,4 +94,4 @@ Keyboard and signup (UI Designer proposals, Product Owner accepted):
 - Slice 30 manual Current: when auto-plan is off, drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current is still illegal (Pull to Backlog or Start).
 - Start from Icebox: estimate-then-Start from Icebox is allowed (Feature must be estimated). It is schedule + start in one verb. The story lands `started` in Current. Shared machine rule for any Member.
 - **API tokens (locked).** User-scoped Bearer at `/api/v1/users/:id/tokens`. Cookie vs Bearer is the only auth difference. Same `/api/v1` handlers. Owner / Member / Viewer only. You can only mint a token with a role at or below your own. Member cannot mint Owner. No org-level mint path. No extra scopes.
-- **Dynamic windows (locked).** No Iteration aggregate. Length in days (default 7). Current is the head of the ranked list that fits this window’s velocity. Future bands are visual. Recompute when velocity, rank, estimate, accept, or length changes.
+- **Dynamic windows (locked).** No Iteration aggregate. Length in days (default 7). Current is the head of the ranked list that fits remaining time at `V_rate` (or `initial_velocity` points on cold start). Future bands are visual. Recompute when stories, estimates, start/accept, rank, or settings change. Planning is live duration + similar-size pred.

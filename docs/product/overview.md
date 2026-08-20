@@ -15,7 +15,7 @@ This page is the one-page intent. Exhaustive rules live in the spec set (see [Ho
 - **Backlog** is the ranked queue: later **computed bands** of one ordered list. Position is priority. Bands are visual, not stored rows.
 - **Current** is this window: the head of the ranked list that fits this window’s velocity, plus in-progress work and stories accepted *this* window.
 - **Done** is accepted work that has **aged past the current window**. Flat list, newest accepted first. Accepted stories stay in Current until the window ends at midnight in the project timezone.
-- **Windows** are computed from length in days (default 7), start weekday, now, and timezone. Velocity is observed from accepted **Feature** points (initial velocity 10 until one window completes). Auto-plan leaves Current short rather than overfilling with the next story. Starting a story may overflow Current. Stories are not assigned to a window row.
+- **Windows** are computed from length in days (default 7), start weekday, now, and timezone. Velocity is a live rate from completed Features’ `started_at` → `accepted_at`. Incomplete stories pack by predicted duration of previous completed stories with the same estimate. A new project bootstraps with initial velocity 10 (estimate-points that fit in a full window). Auto-plan leaves Current short rather than overfilling with the next story. Starting a story may overflow Current. Stories are not assigned to a window row.
 - **Labels** group stories. An epic is one purple label plus an independent epic order, not a parent ticket.
 - **Activity** records what changed, **who** (the user) changed it, and when. History is undo.
 
@@ -57,7 +57,7 @@ Core tables:
 - `story_labels`
 - `activities`
 
-Planning is a calculation. There is no `iterations` table. Stories are not assigned to a window. Length is **`iteration_length_days`** on the project. Accepted-points history lives in `velocity_samples`. `activities.user_id` is the user who did the thing.
+Planning is a calculation. There is no `iterations` table. Stories are not assigned to a window. Length is **`iteration_length_days`** on the project. Velocity is live from story timestamps and estimates; it is not persisted. `activities.user_id` is the user who did the thing.
 
 Business rules (allowed state transitions, who can accept a story, how ranking and `pack` work) belong in `api/internal/domain/<domain>`, not in the database. See [domain-model.md](../core-workflow/domain-model.md).
 

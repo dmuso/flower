@@ -19,7 +19,7 @@ These are Tracker. Do not “improve” them in MVP.
 - **Unstarted cannot be dragged above started.**
 - **Estimate to Start a Feature.** `0` is a valid estimate. Bugs and chores are unestimated by default and do not count toward velocity.
 - **Auto-plan.** Pack Current toward velocity; **leave Current short** rather than overfill with the next story. Start on a Backlog or Icebox story still jumps it to Current (may overflow). Re-plan live on estimate, order, accept, velocity, length.
-- **Velocity.** Strategy = last 3 completed **windows** (project setting 1–4). **Initial velocity 10** until one window completes. Count **accepted Feature points only**.
+- **Velocity.** Live rate from completed Features’ `started_at` → `accepted_at`. Lookback = last `K` completed **windows** (default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the **same estimate**. **Initial velocity 10** is bootstrap (estimate-points that fit in a full window) while the corpus is empty.
 - **Any Member can accept.** Owner / Member / Viewer only. Requester *should* accept; My Work surfaces their Delivered. No accept ACL in MVP. History is undo.
 - **Owners: maximum 5.** Start assigns the clicker as an owner. Requester and owners auto-follow and cannot unfollow.
 - **Tasks** are unowned, unpointed checklists. Incomplete tasks **warn** on Accept; they do not hard-block.
@@ -44,7 +44,7 @@ Tracker got these wrong, or the world changed. We are explicit.
 | REST only, webhooks as the user | Same REST API (`/api/v1/...`) for the app and for tokens. Webhooks are a product feature for any client. GraphQL later unless cheap. |
 | In-app + email; later Slack | Mentions: in-app + email in Phase 1. Slack later. |
 | CSV / PT import as a pile | CSV import/export Phase 3. Pivotal Tracker import later **if at all**. |
-| Team strength % in the velocity formula | **Not MVP.** Average accepted Feature points only. |
+| Team strength % in the velocity formula | **Not MVP.** Duration-based `V_rate` only. |
 | Look-and-feel of Tracker | Flower’s locked look (bloom / stem / paper, Fraunces + Inter, Lucide, columns). See `docs/reference/frontend-design-guide.md`. |
 | Done grouped by completed iteration | Done is a **flat** aged-accepted list, newest first. |
 

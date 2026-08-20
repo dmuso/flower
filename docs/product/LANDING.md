@@ -14,7 +14,7 @@ The overview must say, in short form:
 - Feature / Bug / Chore / Release have **different** state machines (see [tracker-brief.md](./tracker-brief.md)).
 - `rejected` is not a terminal peer of `accepted`. Reject, then Restart, returns the story to `started` in Current.
 - Any Member can accept. Requester should. Viewers cannot.
-- Velocity = accepted Feature points. Initial velocity 10. Auto-plan leaves Current short rather than overfill.
+- Velocity is live from completed Feature start/end times (`started_at` → `accepted_at`) plus similar-size predicted duration. Initial velocity 10 is bootstrap. Auto-plan leaves Current short rather than overfill.
 - Windows are **computed** (length in days). Flower does not persist Tracker-style iteration records as the plan.
 - Tokens are **user-scoped** (`/api/v1/users/:id/tokens`).
 - Point the reader at the feature folders below for the exhaustive rules.
@@ -31,7 +31,7 @@ Root `README.md` should describe Icebox as a holding pen, not a pipeline stage. 
 | `tracker-brief.md` | `docs/product/tracker-brief.md` | Copy-exactly vs modernise. |
 | `product-spec.md` | `docs/core-workflow/product-spec.md` | Whole-product slices + AC. |
 | `domain-model.md` | `docs/core-workflow/domain-model.md` | Domain map. Technical Lead owns the tree. |
-| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model (`pack` as a pure function). |
+| `velocity-and-planning.md` | `docs/velocity-planning/velocity-and-planning.md` | Planning model (live `V_rate` + `pred` + `pack`). |
 | `multitenancy.md` | `docs/multitenancy/multitenancy.md` | Organisations, roles, isolation. |
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |
@@ -51,7 +51,7 @@ Add links from `docs/README.md` to the new product and feature folders. Do not m
 
 Core tables: `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`.
 
-Planning is a calculation. There is no `iterations` table. Accepted-points history lives in `velocity_samples`. Project length is `iteration_length_days` (default 7).
+Planning is a calculation. There is no `iterations` table. Velocity is live from stories; it is not persisted. Project length is `iteration_length_days` (default 7).
 
 Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
 

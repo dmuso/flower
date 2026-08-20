@@ -20,7 +20,7 @@ Who feels it:
 
 What is missing:
 
-- Classic Tracker’s model, implemented faithfully: one ordered list, Icebox as an unscheduled holding pen, type-specific state machines, velocity from accepted Feature points.
+- Classic Tracker’s model, implemented faithfully: one ordered list, Icebox as an unscheduled holding pen, type-specific state machines, velocity from completed Feature durations (`started_at` → `accepted_at`).
 - An honest empty/new project: initial velocity 10, auto-fill, no fake milestone picker.
 - The same story API the frontend uses, so a script can move a story with an **API token** rather than a person’s password.
 
@@ -149,9 +149,9 @@ No estimate. Optional **target date** (a comparison, not a plan override). Place
 
 Schema must match this model.
 
-Core: `users`, `projects`, `project_memberships`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `accepted_at`), `labels`, `story_labels`, `activities` (`user_id` = the user who did the thing).
+Core: `users`, `projects`, `project_memberships`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `started_at`, `accepted_at`), `labels`, `story_labels`, `activities` (`user_id` = the user who did the thing).
 
-Planning is a calculation. There is no `iterations` table. Length is **`iteration_length_days`** on the project (default 7). Accepted-points history lives in `velocity_samples`. Product language is **user**.
+Planning is a calculation. There is no `iterations` table. Length is **`iteration_length_days`** on the project (default 7). Velocity is live from story timestamps and estimates; it is not persisted. Product language is **user**.
 
 Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens.
 
@@ -280,17 +280,18 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Brand-new project: velocity **10** (initial). **Current is the head of the ranked list that fits this window’s velocity.** Auto-fill estimated unstarted Features from the top up to 10 points, **leaving Current short** rather than putting a story that would exceed 10 into Current.
+- Brand-new project: **cold start**. `V_rate` is undefined. Pack uses **initial velocity 10** as estimate-points that fit in a full window. **Current is the head of the ranked list that fits that budget.** Auto-fill estimated unstarted Features from the top, **leaving Current short** rather than putting a story that would exceed 10 into Current.
+- After the first Feature is accepted with both `started_at` and `accepted_at`, the duration model is the only model: `V_rate = work / time` from the corpus, and incomplete stories pack by `pred(estimate)` (mean duration of completed Features of the same estimate; or `E / V_rate` if that size has no corpus row). Current fills remaining time from `now` to `ends_at`.
 - Future bands in Backlog are **visual** only — the same `pack` function, not stored rows, not story assignments.
-- Starting a Backlog or Icebox Feature still jumps it to Current and **may** make Current > 10.
-- Window **end** (chosen rule): midnight at `starts_on + L days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `L` is length in days. After the first window completes, velocity becomes accepted **Feature** points of that window (and then the rolling last 3, setting 1–4, default 3).
-- A story is never split. If the next Feature is 3 and remaining is 1, it stays in the next Backlog **band**.
+- Starting a Backlog or Icebox Feature still jumps it to Current and **may** overflow Current.
+- Window **end** (chosen rule): midnight at `starts_on + L days` in the project timezone, where `starts_on` is the configured start weekday on or before project-created, and `L` is length in days. Clock crossing only. Accepted stories whose `accepted_at` is now in a completed window age into Done (flat). `V_rate` and `pred` recompute from stories. Lookback is the last `K` completed windows (default 3, setting 1–4).
+- A story is never split. If the next Feature’s predicted duration (or bootstrap cost) does not fit remaining budget, it stays in the next Backlog **band**.
 - Reorder, estimate, accept, start, icebox, length change, or window end → plan already recomputed. No Recalculate button.
 - Accepted this window: still in Current until the current window ends. After the window ends: those accepted stories are in Done as a **flat** list (newest accepted first), not grouped by a window row.
 - Length default **7 days**. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. Not a stored iteration list.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
-- An estimated Feature with cost > V auto-fills only into a band with 0 Feature-points and marks that band over velocity; it never sits unpacked.
-- Fail the slice if the planner persists window rows or assigns a story to a window, or if Current is labelled “iteration 3”.
+- An oversized Feature (`pred` > a full window of `L` days; cold start: cost > 10) auto-fills only into a band with no packed estimated work and marks that band over capacity; it never sits unpacked.
+- Fail the slice if the planner persists window rows, persists velocity, or assigns a story to a window, or if Current is labelled “iteration 3”.
 
 Phase 0 is not done without slice 8.
 
@@ -457,11 +458,11 @@ Rules: [velocity-and-planning.md](./velocity-and-planning.md).
 
 Acceptance criteria:
 
-- A story that `pack` placed in a computed band shows that band’s **end date** as the projection (last calendar day of the window).
+- A story that `pack` placed in a computed band (duration model: `pred` + remaining time; cold start: bootstrap points) shows that band’s **end date** as the projection (last calendar day of the window).
 - Icebox and (if ever unpacked) stories with no band: no date — “Not scheduled.”
 - Release date = end date of the **computed window that contains the marker** (the marker sits at the end of its stories, so that window is when the last story above it packed). Target date optional; marker is blue or red versus that window’s **start**. **No date picker that sets the plan.** Target date is the only date the user types, and it does not move stories.
 - Reorder / estimate / accept / velocity / length change updates dates and colours live.
-- Fail the slice if a projection is read from a stored window row or a story-to-window assignment.
+- Fail the slice if a projection is read from a stored window row, a stored velocity, or a story-to-window assignment.
 
 ### Slice 21 — Member reads the velocity chart and burn-up
 
@@ -469,8 +470,8 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Velocity: bar per **completed window** (accepted Feature points); line at current velocity (initial 10 until N≥1). Current window is not a completed bar.
-- Burn-up: cumulative accepted Feature points vs scoped Feature points (snapshot at window end + live “now”). Releases/bugs/chores add 0 to scope unless the later toggle is on.
+- Velocity: bar per **completed window**, derived live from stories in that window (`work / time`, or completed estimate / window length). Line at current full-window capacity (`V_rate × L`, or initial 10 while the corpus is empty). Current window is not a completed bar. Empty: “No completed stories yet.”
+- Burn-up: cumulative accepted Feature estimates vs scoped Feature estimates, derived from stories (no stored window totals). Releases/bugs/chores add 0 to scope unless the later toggle is on.
 - Empty charts have empty states, no fake history.
 - Viewers can see charts.
 
@@ -543,7 +544,7 @@ Acceptance criteria:
 
 **Why independently acceptable:** the team can see how long work takes, without a per-person scoreboard.
 
-- First `start` → `accepted`. Reject does not reset the clock.
+- First `started_at` → `accepted_at`. Reject / Restart does not reset the clock. Same duration clock as velocity.
 - p50 / p75 / p95 over an accepted-at range, filterable by type.
 - No per-person leaderboard.
 

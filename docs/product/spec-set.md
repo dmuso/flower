@@ -39,7 +39,7 @@ Four story types, **different state machines** (classic Tracker):
 - **Chore:** unscheduled → unstarted → started → accepted. No finished, delivered, or reject.
 - **Release:** a marker, not work. Auto-started when created or dragged into Backlog. Finish → accepted. Optional target date. Place the marker at the **end** of that milestone’s stories. Blue if on track versus the date; red if the **computed window** that contains the marker **starts** after the target.
 
-Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is accepted **Feature** points only. A new project uses **initial velocity 10** until one window completes, then a rolling average of the last 3 completed windows (setting: 1–4). Auto-plan fills Current up to velocity and **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
+Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last `K` completed windows, default 3, setting 1–4). Incomplete stories pack by predicted duration of completed stories with the same estimate. A new project bootstraps with **initial velocity 10** as estimate-points that fit in a full window. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
 
 Length is **days** (default 7), stored on the project. Flower does not persist Tracker-style iteration records as the plan. `pack` is a pure function. Stories are not assigned to a window row.
 
@@ -53,7 +53,7 @@ Steal the power of classic Pivotal Tracker. Refuse Jira, Monday, and late-era is
 
 1. **One ordered list.** Priority is position. Icebox is unscheduled, not in the plan.
 2. **The computer does the math.** Humans order and estimate. Flower packs Current and future bands from velocity. Re-plan is live.
-3. **Velocity is observed Feature points.** Initial 10, then the rolling average. We do not type a date to look prepared. Team strength % is later, not MVP.
+3. **Velocity is observed from completed Feature durations** (`started_at` → `accepted_at`), plus a similar-size prediction for incomplete work. Initial 10 is bootstrap only. We do not type a date to look prepared. Team strength % is later, not MVP.
 4. **Small scale.** Default Linear 0 / 1 / 2 / 3. `0` is estimated. Unestimated is different and cannot Start a Feature.
 5. **Accept is a team verb.** Any Member may accept. Requester should. History undoes a mistake.
 6. **The board is the meeting.** Icebox / Backlog / Current / Done plus the open story.
@@ -76,12 +76,12 @@ Treat as given. Do not redesign in this spec.
 | Tenancy | Multitenant from day one (organisations) |
 | Look | bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, column board — `docs/reference/frontend-design-guide.md` |
 | Core schema | `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. `projects.iteration_length_days`. `activities.user_id`. No `iterations` table. |
-| Added by slices | organisations, story owners, comments, tasks, attachments, epics, `velocity_samples`, `api_tokens`, notifications |
+| Added by slices | organisations, story owners, comments, tasks, attachments, epics, `api_tokens`, notifications |
 | Domain | `api/internal/domain/<domain>`; frontend split by domain — [domain-model.md](./domain-model.md) |
 | Spelling | UK / AU / NZ (`organisations`, not `organizations`) |
 | Migrations | Schema-only. No DB enums, triggers, or functions. Business rules in the Go domain packages. |
 
-Schema must match this model. Planning is a calculation: no `iterations` table. Accepted-points history lives in `velocity_samples`. New slices add tables (owners, comments, tasks, organisations, tokens) without inventing a second planning store.
+Schema must match this model. Planning is a calculation: no `iterations` table. Velocity is live from stories and is not persisted. New slices add tables (owners, comments, tasks, organisations, tokens) without inventing a second planning store.
 
 Architecture lives in `technical-approach.md` after the Reviewer clears this set.
 
@@ -93,7 +93,7 @@ Architecture lives in `technical-approach.md` after the Reviewer clears this set
 | [tracker-brief.md](./tracker-brief.md) | Copy-exactly vs modernise |
 | [product-spec.md](./product-spec.md) | Problem, personas, slices, AC |
 | [domain-model.md](./domain-model.md) | Domain map (Technical Lead) |
-| [velocity-and-planning.md](./velocity-and-planning.md) | Window clock, `pack`, releases, charts, examples |
+| [velocity-and-planning.md](./velocity-and-planning.md) | Window clock, corpus, `V_rate`, `pred`, `pack`, releases, charts, examples |
 | [multitenancy.md](./multitenancy.md) | Organisations, roles, isolation, workspaces |
 | [open-questions.md](./open-questions.md) | True forks + baked assumptions |
 | [LANDING.md](./LANDING.md) | Eventual repo paths; overview.md correction |
