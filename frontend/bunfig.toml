@@ -1,0 +1,6 @@
+[serve.static]
+plugins = ["./scripts/plugins/solid-plugin.ts"]
+env = "FRONTEND_*"
+
+[test]
+preload = ["./test-setup.ts"]

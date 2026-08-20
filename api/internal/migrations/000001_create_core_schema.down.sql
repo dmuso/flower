@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS activities;
+DROP TABLE IF EXISTS story_labels;
+DROP TABLE IF EXISTS labels;
+DROP TABLE IF EXISTS stories;
+DROP TABLE IF EXISTS iterations;
+DROP TABLE IF EXISTS project_memberships;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS users;

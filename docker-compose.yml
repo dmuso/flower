@@ -1,0 +1,122 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - VERSION=dev
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=flower_dev
+      - DB_PASSWORD=flower
+      - DB_NAME=flower_dev
+      - DB_SSL_MODE=disable
+      - API_PORT=8080
+    ports:
+      - "8180:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api/internal/migrations:/app/internal/migrations
+    working_dir: /app
+    command: ["./server"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - flower-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        FRONTEND_API_URL: ${FRONTEND_API_URL:-http://api:8080}
+    ports:
+      - "4273:4173"
+    environment:
+      - FRONTEND_PORT=4173
+      - FRONTEND_API_URL=${FRONTEND_API_URL:-http://api:8080}
+    networks:
+      - flower-network
+
+  db:
+    image: postgres:17-bookworm
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=flower_dev
+      - POSTGRES_PASSWORD=flower
+      - POSTGRES_DB=flower_dev
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flower_dev -d flower_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flower-network
+
+  db_test:
+    image: postgres:17-bookworm
+    profiles:
+      - test
+    environment:
+      - POSTGRES_USER=flower_test
+      - POSTGRES_PASSWORD=flower
+      - POSTGRES_DB=flower_test
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flower_test -d flower_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flower-network
+
+  db_test_host:
+    image: postgres:17-bookworm
+    profiles:
+      - test
+    ports:
+      - "5437:5432"
+    environment:
+      - POSTGRES_USER=flower_test
+      - POSTGRES_PASSWORD=flower
+      - POSTGRES_DB=flower_test
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flower_test -d flower_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flower-network
+
+networks:
+  flower-network:
+    driver: bridge
