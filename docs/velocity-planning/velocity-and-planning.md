@@ -10,7 +10,7 @@ Velocity is **live**. It is calculated from previous stories' start and end date
 
 Stories projected to complete in this window = that live velocity **plus** a prediction of how long each incomplete story will take, from previous **completed** stories of **similar estimated sizing** (the same estimate value).
 
-Deltas versus Tracker are only those listed in [tracker-brief.md](./tracker-brief.md) (initial-velocity bootstrap is Tracker-shaped; team strength is *deferred*).
+Deltas versus Tracker are only those listed in [tracker-brief.md](../product/tracker-brief.md) (initial-velocity bootstrap is Tracker-shaped; team strength is *deferred*).
 
 ## Definitions
 
@@ -36,7 +36,7 @@ Deltas versus Tracker are only those listed in [tracker-brief.md](./tracker-brie
 Pick is **calendar windows that end at midnight**, project timezone. The clock defines windows. Packing the **open** window uses time remaining from `now` to `ends_at`.
 
 - Stored: **iteration length in days** (`iteration_length_days`). Default **7**. Owner may set any positive integer (typical 7, 14, 21, 28).
-- Stored: start weekday (default **Monday**) and project timezone (default `Australia/Melbourne` — see [open-questions.md](./open-questions.md) for the timezone-source fork).
+- Stored: start weekday (default **Monday**) and project timezone (default `Australia/Melbourne` — see [open-questions.md](../product/open-questions.md) for the timezone-source fork).
 - First window **start date** = the configured start weekday **on or before** the project-created date, in the project timezone.
 - Window `i` (i = 0, 1, 2, …) is the half-open range:
   - `starts_on(i) = first_start + i × iteration_length_days` at `00:00` project timezone
@@ -118,14 +118,15 @@ Bugs, chores, and releases: duration **0** for packing unless the bugs-and-chore
 
 ## Cold start
 
-Until the corpus has at least one Feature with `started_at` and `accepted_at` (or `time == 0`):
+`velocity` is undefined while the lookback of completed windows has no Feature, or `time == 0`. A Feature accepted in the open window is not in the lookback. Accepting a Feature does not define `velocity`. `velocity` becomes defined when a Feature is in the lookback of a **completed** window.
 
-- `velocity` is not used.
+While `velocity` is undefined:
+
 - Pack uses `initial_velocity` (default **10**, Owner-editable) as **estimate-points that fit in a full window**. Leave the band **short** rather than overfill.
 - Future Backlog bands also pack at those 10 points, so dates exist from day one if Features are estimated and ranked.
 - This is bootstrap only.
 
-After the first completion, the duration model is the only model. `velocity` and `predicted_duration` come from the corpus. If a later lookback is empty or `time == 0`, `velocity` is again undefined and the same bootstrap packing applies — one rule, not a second formula.
+When a Feature is in the lookback of a completed window and `time` is not 0, the duration model is the only model. `velocity` and `predicted_duration` come from the corpus. If a later lookback is empty or `time == 0`, `velocity` is again undefined and the same bootstrap packing applies — one rule, not a second formula.
 
 Copy on an empty Current with an empty ranked list: “Nothing in this window yet. Pull a story from Icebox or create one.”
 
