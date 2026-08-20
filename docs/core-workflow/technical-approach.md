@@ -247,7 +247,8 @@ Normative tables: `product-spec.md` (humans) and `agent-api.md` (agents). Agent 
 | --- | --- | --- | --- |
 | schedule | unscheduled | unstarted | `stories:write` |
 | icebox | unstarted only | unscheduled | `stories:write` |
-| start | unstarted | started | `stories:transition`; Feature also needs estimate |
+| start | unstarted | started | if `stories:transition`; Feature also needs estimate |
+| start | unscheduled (Icebox) | started | if `stories:transition`; this verb is schedule+start. Story lands started in Current (may overflow velocity). A typical CI token with stories:transition and not stories:write may still do this. Feature must already be estimated (`0` allowed). |
 | finish | started | finished | `stories:transition` |
 | deliver | finished | delivered | `stories:transition` |
 | accept | delivered | accepted | **human only** in MVP |
@@ -259,7 +260,7 @@ Normative tables: `product-spec.md` (humans) and `agent-api.md` (agents). Agent 
 
 **Release:** unscheduled in Icebox; created in Backlog or scheduled → auto-`started`. `finish` → `accepted`. No estimate.
 
-`PATCH` must not write `state`. There is no `unstart` verb. Product-spec slice 23 lists `unstart`; **agent-api.md wins** — do not add `unstart`. Icebox is `icebox`. Undo is `undo` (slice 15 / agent contract).
+`PATCH` must not write `state`. There is no `unstart` verb. Icebox is `icebox`. Undo is `undo` (slice 15 / agent contract).
 
 **Start Feature** without estimate → `unestimated`, no mutation. `0` is allowed. Start assigns the clicker (human or agent) as a story owner if owners < 5; if already 5 and clicker is not among them, Start still happens and they are **not** added (product). Auto-follow the clicker (requester and owners cannot unfollow — slice 4 AC requires follow to exist).
 
@@ -599,7 +600,6 @@ Only what a slice cannot ship without. No drive-by.
 | Magic link / invite token leak | Email and logs | Store hashes only; single-use; 14-day invite; do not log raw tokens |
 | Clock skew vs project TZ | Rollover definition is midnight **project** TZ | Store TZ; default `Australia/Melbourne`; all comparisons via `Clock` + that TZ |
 | Overview.md / root README still describe Icebox as a pipeline and `rejected` as a terminal peer | Agents will implement the old overview | LANDING correction in the implementation PR; this approach and tracker-brief supersede; QA fails those old readings |
-| `unstart` appears in product-spec slice 23 | Second verb set | **agent-api.md wins** — no `unstart` |
 | Dummy `password_hash` for magic-link users | Hidden branch, forbidden by AGENTS.md | Nullable column; password login refuses NULL |
 | Existing projects without `organisation_id` if 000001 already ran | NOT NULL add | Schema: add nullable, boot **backfill** in Go (create an organisation only for orphan rows if any exist — this is data, not a SQL migration), then schema NOT NULL. Empty greenfield: backfill is a no-op |
 | Unique rank violation under concurrent drag | Two Members reorder | `revision` + one retry; then `conflict`; UI snaps back |
@@ -862,7 +862,6 @@ These are not new product rules. Product remains unspecified where marked.
 | Icebox vs one rank | Assumed two lists (fork 5) | `rank_list` + unique `(project_id, rank_list, rank)` |
 | Who creates projects after slice 0 | Assumed organisation owners | Enforce in Go |
 | Reject reason vs comments table | Comments are slice 13 | Phase 0: activity only |
-| Agent `unstart` | Conflict: product-spec lists it | **No `unstart`** (agent-api) |
 | HTTP prefix `/v1` vs `/api/v1` | Conflict: agent-api vs existing README | **`/api/v1`** mount; agent verbs/errors unchanged |
 | Human session mechanism | Unspecified | Server-side cookie sessions |
 | Live transport | Unspecified | SSE + in-process bus, slice 17 |

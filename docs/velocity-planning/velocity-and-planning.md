@@ -1,8 +1,10 @@
 # Velocity and planning
 
+Change name: `flower`
+
 This file is the planning product. If a slice, a mock, or an implementation disagrees with it, this file wins until Dan changes it.
 
-Flower plans like classic Pivotal Tracker. We copy the model. We do not invent a third one. Deltas are only those listed in [tracker-brief.md](../product/tracker-brief.md) (initial-velocity behaviour is Tracker; team strength is *deferred*, not replaced with a fiction).
+Flower plans like classic Pivotal Tracker. We copy the model. We do not invent a third one. Deltas are only those listed in [tracker-brief.md](./tracker-brief.md) (initial-velocity behaviour is Tracker; team strength is *deferred*, not replaced with a fiction).
 
 ## Definitions
 

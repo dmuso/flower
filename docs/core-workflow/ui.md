@@ -218,7 +218,7 @@ Place the marker at the **end** of that milestone’s stories (work above, marke
 | Icebox → Backlog | **Schedule.** `unscheduled` → `unstarted`. Lands at the **bottom** of the ranked list. Release auto-`started`. |
 | Backlog → Icebox | **Icebox.** `unstarted` only → `unscheduled`. Drops out of the plan. |
 | Reorder inside the ranked list | Priority. Unstarted **cannot** sit above started / finished / delivered / rejected. Illegal drop snaps back. |
-| Backlog → Current | **Rejected.** Does not Start. Snap back. |
+| Backlog → Current | **Rejected** while auto-plan is on. Does not Start. Snap back. **Slice 30 only (manual Current):** this drag is legal. `C` on a focused unstarted Backlog story does the same. Icebox → Current stays illegal. |
 | Icebox → Current | **Rejected.** Does not Start. Use **Start** (after estimate on a Feature). |
 | Anything → Done | **Rejected.** Done is rollover only. |
 | Accepted-this-iteration → Backlog | **Rejected.** |
@@ -300,7 +300,7 @@ Flower fills what it can. The human types what only a human knows.
 | --- | --- | --- |
 | Account email | — | Email |
 | Password or magic link | — | Their choice. Do not force both. |
-| Username | Infer from email local-part; editable later. `users.username` is `NOT NULL` — see open questions. | Only if Dan picks “ask at signup”. |
+| Username | Infer from email local-part; editable later. Locked 20 Aug 2026. | Do not ask at signup. |
 | Email verification | Send the mail | They click the link |
 | Organisation name | — | Name (slice 0, required) |
 | Organisation slug / URL | From the name | Do not ask |
@@ -328,7 +328,7 @@ Flower fills what it can. The human types what only a human knows.
 | Reject reason | — | Required |
 | Blocker | — | Free text; optional **story** picker (not a URL) |
 | Linked-blocker resolve | Auto when the linked story is accepted or deleted | — |
-| Mentions | Resolve `@` against project Members/Owners | The `@name` |
+| Mentions (slice 12b) | Resolve `@` against project Members/Owners/Viewers | The `@name` |
 | Images | Clipboard paste → attachment + embed | File picker as quieter option |
 | Activity | Actor, time, from → to | — |
 | Reorders in activity | Do not log | — |
@@ -385,10 +385,12 @@ Slice 16 requires a keyboard path for estimate 0–3, start, finish, deliver, ac
 | `S` | **Start** the focused story if the machine allows. Feature + unestimated: no state change; announce the slice 4 copy. Assigns the clicker as owner when owners < 5. |
 | `F` | **Finish.** Feature/Bug: `started` → `finished`. Chore/Release: Finish **is** accept. |
 | `D` | **Deliver.** Unshifted. `Shift+D` still toggles Done. Illegal if not `finished`. |
-| `Enter` | If the row is collapsed: activate the primary `StateButton` (Start / Finish / Deliver / Accept / Restart). If the sheet is already open: native. **Accept’s letter key is an open question** (`A` is Add Story). Until that fork is resolved, **Enter on a focused `delivered` row Accepts** (any Member/Owner). That is a keyboard path; it is not a second scheme. Click the title to open the sheet without activating the verb. |
-| `R` | **Reject** when focused story is `delivered`. Opens the reason dialog. Confirm is **Reject**. Empty reason does nothing. **Conflicts with Restart** — see open questions. Until resolved: `R` is Reject only; Restart is **Enter** on a focused `rejected` row (that row’s StateButton is Restart). |
+| `Enter` | If the row is collapsed: activate the primary `StateButton` (Start / Finish / Deliver / Accept / Restart). If the sheet is already open: native. **Locked 20 Aug 2026:** `A` is Add Story. **Enter on a focused `delivered` row Accepts** (any Member/Owner). Click the title or `O` to open the sheet without activating the verb. |
+| `O` | **Open** the focused story’s `StorySheet`. `Esc` closes. Click the title does the same. Locked 20 Aug 2026. Enter stays the verb, not open. |
+| `R` | **Reject** when focused story is `delivered`. Opens the reason dialog. Confirm is **Reject**. Empty reason does nothing. **Locked 20 Aug 2026:** `R` is Reject only. Restart is **Enter** on a focused `rejected` row. |
 | `I` | **Icebox** the focused `unstarted` story. `Shift+I` still toggles the column. Illegal states announce `Only unstarted stories can go to Icebox.` |
 | `B` | **Pull to Backlog** (schedule) from Icebox. `Shift+B` still toggles the column. |
+| `C` | **Slice 30 only (manual Current):** move the focused unstarted Backlog story into Current. `Shift+C` still toggles the column. Illegal while auto-plan is on: announce `Start the story to bring it into Current.` Icebox → Current stays illegal. |
 
 `Shift+letter` = panel. Unshifted letter = verb or add. Do not invent a leader key.
 
@@ -644,7 +646,7 @@ Incomplete tasks / blockers (later slices): accept anyway; toast `Accepted, with
 
 - One next action in the dialog: **Reject** (Destructive), disabled until the reason has text.
 - Secondary: **Keep delivered**.
-- Confirm: yes (this *is* the confirm). Reason required. Hits the owners (email + in-app once slice 12 exists).
+- Confirm: yes (this *is* the confirm). Reason required. Hits the owners (email + in-app once slice 12b exists).
 - Result: `rejected`, **still Current**, reason on the row and in activity.
 - Then one next action: **Restart** (or Enter on that focused row). → `started`, still Current. Reason remains in activity. They Finish + Deliver again. A new Accept is required.
 - Fail the product if Reject jumps to `started`, or if `rejected` looks terminal like Accepted (no Restart, or it sits in Done).
@@ -762,22 +764,41 @@ Rollover is midnight, project TZ. No “close the iteration” button.
 
 ---
 
-### Slice 12 — Owners, requester, follow, mentions
+### Slice 12 — Owners, requester, follow
 
-**Screen:** `PeopleFields` on `StorySheet`. Notifications: in-app + email.
+**Screen:** `PeopleFields` on `StorySheet`. No notification chrome. Mentions and mail are slice 12b.
 
 - One next action on a story with no owner: **Add owner** (Start already did this for the clicker).
 - Secondary: change requester (human Member/Owner only); Follow (if allowed).
 - Max 5 owners. Sixth: `This story already has 5 owners.`
 - Requester and owners: followed, **cannot** unfollow. Control reads `Following` and is disabled, title `Requesters and owners stay subscribed.`
-- `@` in description/comment: picker of project Members/Owners. Unresolved `@` stays plain text. Viewer can be mentioned (email) and cannot follow, comment, or assign.
-- Also mail + in-app: assigned as owner, delivered → requester, rejected → owners.
+- Viewer: see owners and requester; cannot assign or follow.
 
 | State | Copy | Next |
 | --- | --- | --- |
 | Empty owners | `No owners yet. Start assigns you.` | `Add owner` or Start |
 | Agent as requester | Impossible in the picker | — |
-| Success mention | They get in-app + email | — |
+| Success | Initials on the row | — |
+
+---
+
+### Slice 12b — Mentions and notifications
+
+Product order is 12 → 12b → 13. `@` is allowed in a description or a comment. The description picker can ship in 12b (description already exists). The comment picker attaches to `CommentList` when slice 13 lands. Do not block 12b on 13.
+
+**Screen:** `@` picker in the description (and in comments once slice 13 exists); in-app notice + email. No notification cockpit on the board.
+
+- One next action when typing `@`: pick a project Member, Owner, or Viewer.
+- Unresolved `@` stays plain text.
+- Mail + in-app: mention, assigned as owner, delivered → requester, rejected → owners.
+- Viewer can be mentioned (email) and cannot follow, comment, or assign.
+- In-app notice: one next action is **Open** the story. Secondary: dismiss.
+
+| State | Copy | Next |
+| --- | --- | --- |
+| Empty notices | `Nothing new.` | Back to the board |
+| Unresolved @ | Stays as typed | — |
+| Success mention | They get in-app + email | `Open` |
 
 ---
 
@@ -791,6 +812,7 @@ Allowed: h1–h3, bold, italic, strikethrough, lists, fenced code, inline code, 
 - Secondary: Edit (shows Edited), Delete comment (tombstone, not silent erase).
 - Empty description is legal. Empty comment is not.
 - Viewer: read only.
+- `@` picker on comments is slice 12b, attached here when both have landed. Do not invent a second mention UI.
 
 | State | Copy | Next |
 | --- | --- | --- |
@@ -851,7 +873,7 @@ Allowed: h1–h3, bold, italic, strikethrough, lists, fenced code, inline code, 
 - One next action: do the work without the mouse — focus, open, create, estimate, verbs, reorder, icebox/schedule, search.
 - Secondary: `?` map. Overlay is not the product.
 - Viewer: navigate and open; mutating chords announce no permission.
-- Fail the slice if any AC verb has no keyboard path. Letter keys plus Enter-on-StateButton are specified in §7.
+- Fail the slice if any AC verb has no keyboard path. Letter keys plus Enter-on-StateButton and `O` to open are specified in §7. Locked 20 Aug 2026.
 
 | State | Copy | Next |
 | --- | --- | --- |
@@ -1024,15 +1046,21 @@ Contains: stories **I own** in `started|finished|delivered|rejected`, plus stori
 
 **Screen:** `WorkspaceSwitcher` + `WorkspaceEditor`. Personal, one organisation. Default: all projects they can open.
 
-- One next action: **Open** a workspace, or **Add project** while editing.
-- Secondary: delete workspace (view only — projects remain). Confirm: `Remove this workspace? Projects stay.`
-- Cannot add another organisation’s project. Picker does not list them.
-- Permissions stay per project.
+Acceptance story: create personal workspace **Core** containing **Trail** and **Checkout** in one org.
+
+- One next action when none exist: **Create workspace**. Name it `Core`, then **Add project**.
+- Picker lists Trail, Checkout, and any other project in **this** organisation they can open. Another organisation’s project is not in the picker.
+- One next action when Core exists: **Open**.
+- Secondary: remove a project from the set; **Remove workspace**. Confirm: `Remove this workspace? Projects stay.` Deleting Core does not delete Trail or Checkout.
+- Permissions stay per project. Viewer on Checkout stays Viewer inside Core.
 
 | State | Copy | Next |
 | --- | --- | --- |
 | Empty custom | `All your projects in {org} are already the default.` | `New workspace` |
-| Success | Named set in the AppBar | Open a project pane (slice 29) |
+| Picker | This organisation only | Add Trail, add Checkout |
+| Other-org project | Absent from the picker | — |
+| Delete confirm | `Remove this workspace? Projects stay.` | `Remove` / `Keep` |
+| Success | **Core** in the AppBar | Open Trail or Checkout (slice 29 can pane both) |
 
 ---
 
@@ -1108,7 +1136,7 @@ Default before they split: four columns in one pane (the MVP board).
 **Screen:** Owner settings + a quiet badge on Current: `Manual`.
 
 - One next action when turning off: confirm **Turn off**.
-- Current then holds only in-flight, accepted-this-iteration, and stories **explicitly moved** there. No velocity fill into Current. Backlog future iterations still auto-plan.
+- Current then holds only in-flight, accepted-this-iteration, and stories **explicitly moved** there (drag Backlog → Current, or `C` on a focused unstarted Backlog story). No velocity fill into Current. Backlog future iterations still auto-plan. Icebox → Current stays illegal.
 - Restore: **Use automatic planning** — replans Current from V. No confirm (reversible by turning off again; the replan is the product doing math, not a delete).
 - Default remains automatic. Not MVP.
 
@@ -1145,7 +1173,7 @@ The requester is not a special ACL. Copy may say `You requested this` on My Work
 
 **Icebox is leftmost.** The product names columns Icebox, Backlog, Current, Done. Tracker often parked Icebox to the right. Leftmost + holding-pen copy is a real tension (it reads as a funnel). Mitigation is the verb language and the snap-back, not a reorder of the columns. Reordering the four columns is **not** in this spec.
 
-**Enter means two things.** Tracker used click for Accept and Enter to open. Flower uses Enter to activate the row’s StateButton when collapsed so Accept / Restart have a keyboard path while `A` stays Add Story. Opening the sheet is click-the-title. Occasional users click the title or the button. Power users get the chord table. If this feels like a hidden mode, that is the Accept-key open question.
+**Enter means the verb. O opens.** Tracker used click for Accept and Enter to open. Flower uses Enter to activate the row’s StateButton when collapsed so Accept / Restart have a keyboard path while `A` stays Add Story. Opening the sheet is `O` or click-the-title. Locked 20 Aug 2026.
 
 **Tab selects stories (Tracker) vs native Tab.** On the board, Tab is story focus so a morning works one-handed. In any dialog or field, Tab is native. Contrast and focus ring are mandatory so this is learnable.
 
@@ -1159,21 +1187,21 @@ The requester is not a special ACL. Copy may say `You requested this` on My Work
 
 ---
 
-## 12. Open questions that would block implementation
+## 12. Locked 20 Aug 2026
 
-Only forks the docs do not resolve. Everything in `docs/product/open-questions.md` “we assume” ships as assumed. These are the leftovers that would make a developer guess **UI**.
+Do not reopen these. Product Owner accepted them. They live in `docs/product/open-questions.md` as well.
 
-1. **`A` is Add Story. Slice 16 requires keyboard Accept.** Tracker never shipped an Accept key. This file keeps `A` = Add (Tracker copy) and uses **Enter on a focused `delivered` row** as the Accept path. If Dan wants a dedicated Accept letter, say so — do not let implementers pick a third mapping in a private keymap.
-
-2. **`R` is Reject. Restart also wants `R`.** This file: `R` opens Reject (only legal on `delivered`); Restart is Enter on a `rejected` row. Same class of fork as (1).
-
-3. **Username at signup.** Schema is `NOT NULL`. This file infers from the email local-part (manifesto: infer). If Dan wants the field on `SignUp`, add it as a third input, label `Username`, still not the one next action.
-
-4. **`Shift+H` Project History.** Tracker had a project history panel. Flower has story activity (slice 15) only. Chord is **reserved**. Do not bind it to story activity or a fake feed.
-
-5. **Fibonacci / custom estimate keys (slice 28).** MVP is `0`–`3`. Extra values have chips. Whether `5` / `8` become keys is undecided and only blocks that slice’s keyboard AC if QA requires it.
-
-6. **Finished has no status colour in the guide.** Rows stay white; the verb is Deliver. Do not invent a “finished yellow”. Confirm that is enough.
+1. **`A` is Add Story.** Not Accept.
+2. **Accept** is Enter on a focused `delivered` row (or the Accept button).
+3. **`R` is Reject** (reason, then confirm).
+4. **Restart** is Enter on a focused `rejected` row.
+5. **Username** is inferred from the email local-part at signup. No username field in slice 0.
+6. **`Shift+H` is reserved.** No project history panel in MVP. Do not bind it to story activity or a fake feed.
+7. Estimate keys in MVP are **0 / 1 / 2 / 3** only. Fibonacci / custom keys wait for slice 28.
+8. **Finished** has no status colour. White row + Deliver verb. Do not invent yellow.
+9. **`O` opens** the story sheet. Enter stays the primary verb. Esc closes. Click the title also opens.
+10. Epic visual: no new purple hex. Epic pill is Bloom-bordered.
+11. Slice 30 manual Current: drag Backlog → Current is legal, and **C** (unshifted) moves the focused unstarted Backlog story into Current. Icebox → Current stays illegal.
 
 Not blockers (assumed, already applied): Icebox is its own order; organisation owners create projects; CSV is Owner-only; cycle clock is first start → accepted; workspaces are personal; no `planned` state until slice 30 (and that slice’s `planned` vs flag is a product fork, not a palette); project TZ stored, default `Australia/Melbourne`, not asked at signup; agent Feature accept stays human.
 

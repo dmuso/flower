@@ -1,5 +1,7 @@
 # Agent API
 
+Change name: `flower`
+
 Agents are first-class teammates. They are not a human’s personal token with a different User-Agent. This file is the contract. The Technical Lead designs storage and HTTP internals. They may not loosen the rules.
 
 REST + webhooks in this slice. GraphQL later unless a named slice proves it cheaper — default remains REST.
@@ -12,7 +14,7 @@ Flower:
 
 - An **agent** has a name, an organisation, a scope list, and one or more projects.
 - Actions are attributed to the agent. The human who minted the token is recorded on the grant, not as the actor.
-- The state machines in [product-spec.md](../core-workflow/product-spec.md) are the contract. Verbs, not free-form state writes.
+- The state machines in [product-spec.md](./product-spec.md) are the contract. Verbs, not free-form state writes.
 - Agents must not guess. If a rule would require judgement (Feature/Bug accept or reject), the API refuses.
 
 ## Auth and scopes
@@ -66,6 +68,7 @@ Legal actions depend on **type and from-state** (copy of the product machines):
 | schedule | unscheduled | unstarted | if `stories:write` |
 | icebox | unstarted | unscheduled | if `stories:write` |
 | start | unstarted | started | if `stories:transition`; Feature also needs estimate |
+| start | unscheduled (Icebox) | started | if `stories:transition`; this verb is schedule+start. Story lands started in Current (may overflow velocity). A typical CI token with stories:transition and not stories:write may still do this. Feature must already be estimated (`0` allowed). |
 | finish | started | finished | if `stories:transition` |
 | deliver | finished | delivered | if `stories:transition` |
 | accept | delivered | accepted | **human only** in MVP |

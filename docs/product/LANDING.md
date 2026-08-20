@@ -34,8 +34,8 @@ Optional, same PR if the line is still wrong: root `README.md` sentence “Stori
 | `open-questions.md` | `docs/product/open-questions.md` | Forks + assumptions. |
 | `LANDING.md` | `docs/product/LANDING.md` | Keep until the files have actually moved; then delete or fold into `docs/README.md`. |
 | — | `docs/product/overview.md` | **Update in place** (correction above). |
-| — (UI Designer, later) | `docs/core-workflow/ui.md` | Must cite `docs/reference/frontend-design-guide.md`. No new palette. |
-| — (Technical Lead, later) | `docs/core-workflow/technical-approach.md` | Plus per-feature approach notes if a slice needs them. |
+| `ui.md` | `docs/core-workflow/ui.md` | In this PR. UI Designer file. Must cite `docs/reference/frontend-design-guide.md`. No new palette. |
+| `technical-approach.md` | `docs/core-workflow/technical-approach.md` | In this PR. Technical Lead file. Plus per-feature approach notes if a slice needs them. |
 
 Add links from `docs/README.md` to the new product and feature folders. Do not move reference docs.
 

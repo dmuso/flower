@@ -1,5 +1,7 @@
 # Multitenancy
 
+Change name: `flower`
+
 Flower is multitenant from day one. There is no single-tenant mode. There is no “dev board” that skips organisation isolation.
 
 This file is the tenancy product. The Technical Lead designs how it is enforced. They may not loosen these rules.
@@ -27,7 +29,7 @@ Account (human login)
 
 A person. Email unique. Authenticates with email + password and/or magic link in MVP. SSO later.
 
-`users.username` is `NOT NULL` today — see [open-questions.md](../product/open-questions.md). One email, one account. An account can belong to many organisations. An account is not a tenant. Data is always organisation → project → story.
+`users.username` is `NOT NULL` today — see [open-questions.md](./open-questions.md). One email, one account. An account can belong to many organisations. An account is not a tenant. Data is always organisation → project → story.
 
 Deleting an account (no slice yet) must not delete an organisation that still has another owner.
 
@@ -124,7 +126,7 @@ Fail QA if a viewer can `POST` a story via the API.
 - Create a project (organisation owner only, MVP)
 - Mint a token for a project they do not belong to as member/owner
 
-They **can** accept, reject, restart, undo, and create agent tokens for projects they can write. Tokens are agents, not impersonations. See [agent-api.md](../agent-api/agent-api.md).
+They **can** accept, reject, restart, undo, and create agent tokens for projects they can write. Tokens are agents, not impersonations. See [agent-api.md](./agent-api.md).
 
 ## Workspaces (Phase 3)
 

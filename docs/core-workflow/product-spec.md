@@ -2,7 +2,7 @@
 
 Change name: `flower`
 
-Eventual path: `docs/core-workflow/product-spec.md` (see [LANDING.md](../product/LANDING.md)).
+Eventual path: `docs/core-workflow/product-spec.md` (see [LANDING.md](./LANDING.md)).
 
 This spec is the product. Companion files own exhaustive rules for planning, tenancy, and the agent API. Do not implement until the Reviewer clears the spec set.
 
@@ -79,9 +79,9 @@ Daily: Start when the branch opens, comment the PR URL, Finish when the work is 
 - Team strength % (later). Manual planning of Current (later, Phase 3).
 - A new visual identity.
 
-## Assumptions (law until Dan corrects [open-questions.md](../product/open-questions.md))
+## Assumptions (law until Dan corrects [open-questions.md](./open-questions.md))
 
-See also [tracker-brief.md](../product/tracker-brief.md). Short form:
+See also [tracker-brief.md](./tracker-brief.md). Short form:
 
 - Email + password and magic link for humans in MVP; SSO later.
 - Agents: scoped tokens, first-class, no impersonation.
@@ -167,7 +167,7 @@ A team can sign up, share a project, Icebox a Feature, rank it, estimate, run th
 
 Acceptance criteria:
 
-- Given I have no account, when I sign up with email + password (and username if we ask — see open questions) and verify email, then I name an **organisation** and a first **project** before I see a board.
+- Given I have no account, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
 - Given I have no account, when I open a magic link to a new email, then an account is created and I am on the same organisation + project flow.
 - Given I have an account, when I sign in with password **or** magic link, then I land on my last project.
 - Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show iteration dates and **velocity 10** (initial). Backlog may show future iteration headers once stories exist; on an empty board, empty copy is enough.
@@ -223,7 +223,7 @@ Acceptance criteria:
 
 - Given an `unstarted` Feature, when I set estimate to `0`, `1`, `2`, or `3`, then it shows that estimate and stays `unstarted` until I Start.
 - Given an unestimated Feature, when I Start (UI or API), then Start is rejected, state stays `unstarted`, message says it needs an estimate. Fail the slice if Start succeeds.
-- Given an estimated Feature, when I Start it, then it is `started`, it appears in Current (even if that overflows velocity), I am a story owner, and I auto-follow.
+- Given an estimated Feature, when I Start it, then it is `started`, it appears in Current (even if that overflows velocity), I am a story owner, and follow is recorded; Follow UI is slice 12.
 - Clearing estimate is allowed only while `unstarted`. Started Features cannot become unestimated.
 - Viewer cannot estimate or start.
 - Starting from Icebox: estimate first (or estimate-and-start from Icebox). The story becomes `started` in Current, not `unstarted` in Backlog.
@@ -238,7 +238,6 @@ Acceptance criteria:
 - Finished → Deliver → `delivered`, stays in Current. Requester sees it in My Work once that slice exists; until then, Delivered is visible in Current.
 - Given `delivered`, when **any** Member or Owner accepts, then state is `accepted`, `accepted_at` is set, and the story **remains in Current** (not Done). Done is empty until the iteration rolls.
 - Viewer cannot finish / deliver / accept.
-- Agent cannot accept a Feature (API `human_judgment_required`).
 - Illegal verbs fail and do not change state (finish on unstarted, accept on finished, …).
 - Incomplete tasks / open blockers do not exist yet; when they do, Accept **warns** and still proceeds.
 
@@ -271,7 +270,7 @@ Acceptance criteria:
 
 ### Slice 8 — Team sees iterations auto-fill from velocity
 
-**Why independently acceptable:** the Tracker moment. Rules: [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md).
+**Why independently acceptable:** the Tracker moment. Rules: [velocity-and-planning.md](./velocity-and-planning.md).
 
 Acceptance criteria:
 
@@ -283,6 +282,7 @@ Acceptance criteria:
 - Accepted this iteration: still in Current. After rollover: those accepted stories are in Done, grouped under the completed iteration.
 - Iteration length default 1 week, Owner may set 1–4 weeks. Changing length replans.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
+- An estimated Feature with cost > V auto-fills only into an iteration with 0 Feature-points and marks that iteration over velocity; it never sits unpacked.
 
 Phase 0 is not done without slice 8.
 
@@ -330,19 +330,25 @@ Acceptance criteria:
 - Viewer can filter, cannot add.
 - Epic-as-purple-label is Phase 2; this slice is ordinary labels. Existing `labels` / `story_labels` tables are the ground.
 
-### Slice 12 — Member assigns owners, requester, followers, and @mentions
+### Slice 12 — Member assigns owners, requester, and followers
 
-**Why independently acceptable:** people know who is on the story; a mention reaches them.
+Why independently acceptable: the row shows who owns the story; the requester can be handed off.
 
 Acceptance criteria:
+- Given a story, when I add owners, then 0–5 project Members/Owners/agents are accepted; the sixth is rejected with that limit. Start already assigned the clicker (slice 4).
+- Requester change: another human Member or Owner on the project. Never an agent. Never a Viewer.
+- Requester and owners auto-follow and cannot unfollow. Other Members/Owners may follow/unfollow.
+- Viewer cannot assign, change requester, or follow.
+- This slice adds the owners table. Do not overload requester_id.
 
-- 0–5 owners. Sixth is rejected with that limit. Start already assigned the clicker (slice 4).
-- Requester change: another human Member or Owner on the project.
-- Requester and owners auto-follow and **cannot** unfollow. Other Members/Owners may follow/unfollow.
-- `@` in a comment or description that resolves to a project Member/Owner → in-app + email. Slack out of scope. Unresolved `@` is plain text.
+### Slice 12b — Member @mentions a teammate and they are notified
+
+Why independently acceptable: an @ reaches a human without Slack.
+
+Acceptance criteria:
+- `@` in a comment or description that resolves to a project Member/Owner → in-app + email. Unresolved `@` is plain text. Slack out of scope.
 - Email + in-app also for: assigned as owner, delivered (to requester), rejected (to owners).
 - Viewer can be mentioned (email) and cannot follow, comment, or assign.
-- Existing schema has no owners table — this slice adds it. Do not overload `requester_id`.
 
 ### Slice 13 — Member writes Markdown description and comments
 
@@ -439,7 +445,7 @@ Acceptance criteria:
 
 **Why independently acceptable:** Maya can answer “when.”
 
-Rules: [velocity-and-planning.md](../velocity-planning/velocity-and-planning.md).
+Rules: [velocity-and-planning.md](./velocity-and-planning.md).
 
 Acceptance criteria:
 
@@ -474,7 +480,7 @@ Acceptance criteria:
 
 **Why independently acceptable:** Grove delivers when CI is green, as Grove.
 
-Rules: [agent-api.md](../agent-api/agent-api.md).
+Rules: [agent-api.md](./agent-api.md).
 
 Acceptance criteria:
 
@@ -492,6 +498,8 @@ Acceptance criteria:
 
 **Why independently acceptable:** Monday morning has a landing place.
 
+Saved search and My Work are two outcomes on one landing; acceptable together because both are read/filter, not two systems. Do not split unless easy.
+
 Acceptance criteria:
 
 - Save current search (text + operators) with a name, per user per project. Reopen applies the same filter. Delete does not delete stories.
@@ -502,15 +510,21 @@ Acceptance criteria:
 
 # Phase 3 — Multi-project and power tools
 
-### Slice 25 — Member works across projects in a workspace
+### Slice 25 — Member opens a named workspace of projects in one organisation
 
-Workspace = named set of projects in **one** organisation. Not a tenant. See [multitenancy.md](../multitenancy/multitenancy.md).
+Workspace = a personal named set of projects in one organisation. Not a tenant. See [multitenancy.md](./multitenancy.md).
+Why independently acceptable: Maya switches Trail and Checkout without leaving Acme, and cannot pull in another organisation.
 
-- Default: all projects I can open. Cannot add another organisation’s project.
-- Permissions stay per project.
-- Deleting a workspace does not delete projects.
+Acceptance criteria:
+- Given I can open Trail and Checkout in Acme, when I create workspace `Core` and add both, then opening `Core` shows those projects. Default is all projects I can open.
+- Given a project in org B, when I try to add it to `Core`, then it is not in the picker and is not added.
+- Permissions stay per project: Viewer on Trail still cannot mutate Trail from the workspace.
+- Given `Core`, when I delete the workspace, then Trail and Checkout still exist.
+- Cannot add another organisation’s project. Deleting a workspace does not delete projects.
 
 ### Slice 26 — Owner exports and imports CSV
+
+**Why independently acceptable:** Maya can snapshot or seed a project from a spreadsheet without a Pivotal importer.
 
 - Owner export: id, title, type, state, estimate, labels, description, requester email, owner emails, epic name, blocker text.
 - Import **creates** only. No upsert. All-or-nothing. Not a Pivotal dump.
@@ -519,11 +533,15 @@ Workspace = named set of projects in **one** organisation. Not a tenant. See [mu
 
 ### Slice 27 — Member reads cycle time
 
+**Why independently acceptable:** the team can see how long work takes, without a per-person scoreboard.
+
 - First `start` → `accepted`. Reject does not reset the clock.
 - p50 / p75 / p95 over an accepted-at range, filterable by type.
 - No per-person leaderboard.
 
 ### Slice 28 — Owner changes the point scale (including revertible custom)
+
+**Why independently acceptable:** the team can change how points work on one settings page — the bugs/chores points toggle is on that same page, not a second epic.
 
 - Settings: `linear` (0,1,2,3, default), `fibonacci` (0,1,2,3,5,8), `powers_of_two` (0,1,2,4,8), `custom` (Owner-defined list, must include a way to **revert** to linear without converting history).
 - Switching does **not** convert existing estimates. Illegal-on-new-scale values remain on old stories until edited.
@@ -532,10 +550,14 @@ Workspace = named set of projects in **one** organisation. Not a tenant. See [mu
 
 ### Slice 29 — Member opens side-by-side panels
 
+**Why independently acceptable:** Luis can keep the board and a story (or another project) open without a second window.
+
 - Two panes: board, story, My Work, search, Icebox, or another project in a workspace.
 - Reload restores the last split. Both panes live-update.
 
 ### Slice 30 — Owner turns off automatic planning for Current
+
+**Why independently acceptable:** Owner can stop auto-fill for Current without changing how future iterations plan.
 
 - Escape hatch, Current **only**. Future iterations stay auto-planned (Tracker).
 - Manual Current: only in-progress, accepted-this-iteration, and stories explicitly moved there (drag Backlog → Current, or **C** on a focused unstarted Backlog story). Icebox → Current is still illegal. No velocity fill into Current.
@@ -558,7 +580,7 @@ A human merges. Do not implement before the Reviewer clears the spec.
 
 ## References
 
-- This brief and the locked Tracker copy-exactly list ([tracker-brief.md](../product/tracker-brief.md)).
+- This brief and the locked Tracker copy-exactly list ([tracker-brief.md](./tracker-brief.md)).
 - Classic Pivotal Tracker help: story states, types, velocity, backlog-to-current, icebox, releases, automatic vs manual planning.
 - [github.com/dmuso/flower](https://github.com/dmuso/flower) — `docs/product/overview.md` (to correct), `docs/reference/frontend-design-guide.md`, migration `000001`.
 - House rules: vertical slices, write-spec, review-spec, delivery workflow, UI manifesto (Pivotal / old Stripe / old Trello; refuse Jira and Monday).
