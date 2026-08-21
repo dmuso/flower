@@ -1,5 +1,5 @@
 -- Slice 0: organisations, auth sessions/tokens, email outbox, project tenancy.
--- Additive. Does not rewrite 000001. Does not write the leftover iterations table.
+-- Additive tenancy/auth. Drops leftover iteration storage: planning is a calculation.
 
 CREATE TABLE organisations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,3 +116,9 @@ CREATE TABLE email_outbox (
 );
 
 CREATE INDEX idx_email_outbox_to_email ON email_outbox (to_email, created_at);
+
+DROP INDEX IF EXISTS idx_stories_iteration_id;
+ALTER TABLE stories DROP CONSTRAINT IF EXISTS fk_stories_iteration_id;
+ALTER TABLE stories DROP COLUMN IF EXISTS iteration_id;
+DROP TABLE IF EXISTS iterations;
+ALTER TABLE projects DROP COLUMN IF EXISTS iteration_length_weeks;
