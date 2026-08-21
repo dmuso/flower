@@ -64,7 +64,7 @@ func New(cfg *config.Config, opts ...Option) (*App, error) {
 		return nil, fmt.Errorf("clock is required")
 	}
 
-	logger, err := newLogger(cfg)
+	logger, err := NewLogger(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -223,7 +223,7 @@ func (a *App) Close() error {
 	return nil
 }
 
-func newLogger(cfg *config.Config) (*zap.Logger, error) {
+func NewLogger(cfg *config.Config) (*zap.Logger, error) {
 	level := zapcore.InfoLevel
 	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
 		return nil, fmt.Errorf("invalid LOG_LEVEL %q: %w", cfg.LogLevel, err)
