@@ -15,7 +15,7 @@ function isTypingTarget(event: KeyboardEvent): boolean {
   return Boolean(target && target.closest("input, textarea, select, [contenteditable=true]"));
 }
 
-export function EmptyBoard(props: {
+export function Board(props: {
   organisation: string;
   project: string;
   pack: Pack;
@@ -50,7 +50,7 @@ export function EmptyBoard(props: {
   });
 
   return (
-    <div class="flex h-screen flex-col bg-paper" data-testid="empty-board" tabIndex={-1} onKeyDown={onKey}>
+    <div class="flex h-screen flex-col bg-paper" data-testid="board" tabIndex={-1} onKeyDown={onKey}>
       <AppBar organisation={props.organisation} project={props.project} onSignOut={props.onSignOut} onHelp={() => setHelp(true)} />
       <div class="flex min-h-0 flex-1 overflow-x-auto">
         <BoardColumn

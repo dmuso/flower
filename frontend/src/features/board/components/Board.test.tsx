@@ -1,14 +1,14 @@
 /** @jsxImportSource solid-js */
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { EmptyBoard } from "./EmptyBoard";
+import { Board } from "./Board";
 
 beforeEach(() => cleanup());
 afterEach(() => cleanup());
 
 function renderBoard() {
   return render(() => (
-    <EmptyBoard
+    <Board
       organisation="Acme"
       project="Trail"
       pack={{
@@ -22,7 +22,7 @@ function renderBoard() {
   ));
 }
 
-describe("EmptyBoard", () => {
+describe("Board", () => {
   it("renders four empty columns with empty-state copy and 0 / 10", () => {
     renderBoard();
     expect(screen.getByText("Acme")).toBeTruthy();
@@ -47,7 +47,7 @@ describe("EmptyBoard", () => {
     renderBoard();
     const add = screen.getByRole("button", { name: "Add a story" });
     add.addEventListener("click", click);
-    fireEvent.keyDown(screen.getByTestId("empty-board"), { key: "A" });
+    fireEvent.keyDown(screen.getByTestId("board"), { key: "A" });
     expect(click).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
     expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();

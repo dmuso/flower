@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { Match, Switch, createResource } from "solid-js";
-import { EmptyBoard } from "../features/board";
+import { Board } from "../features/board";
 import { primaryButtonClass } from "../components/AuthCard";
 import { ApiRequestError } from "../lib/api/core";
 import { fetchMe, signOut, type Me } from "../lib/api/auth";
@@ -112,7 +112,7 @@ export function BoardPage() {
       </Match>
       <Match when={board()}>
         {(state) => (
-          <EmptyBoard
+          <Board
             organisation={state().organisationName}
             project={state().project.name}
             pack={state().stories.pack}
