@@ -176,7 +176,7 @@ Acceptance criteria:
 - Given I have no user, when I sign up with email + password and verify email, then I name an **organisation** and a first **project** before I see a board. Username is inferred from the email local-part. No username field.
 - Given I have no user, when I open a magic link to a new email, then a user is created and I am on the same organisation + project flow.
 - Given I have a user, when I sign in with password **or** magic link, then I land on my last project.
-- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty, each with one next action. No fake stories. No fake dates. Current may show the computed window end and **velocity 10** (initial). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
+- Given I created organisation `Acme` and project `Trail`, when the board loads, then I see four columns — **Icebox, Backlog, Current, Done** — each empty. Icebox has one next action (add). Backlog has none until Icebox has a row. Done has none. No fake stories. No fake dates. Current may show the computed window end and **`0 / 10`** (points / initial velocity). Backlog may show future **band** headers once stories exist; on an empty board, empty copy is enough. No stored iteration list.
 - Columns follow `docs/reference/frontend-design-guide.md` (full-height, paper, bloom current highlight). Fail if a new palette appears.
 - Unverified password signup cannot create an organisation.
 - Creator is organisation owner and project owner.
