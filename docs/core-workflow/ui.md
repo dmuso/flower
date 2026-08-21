@@ -240,7 +240,7 @@ Keyboard reorder is first-class (Tab, Space, arrows, Space). See §7.
 ### Band chrome (computed, not stored)
 
 - **Current `ColumnHeader` extra line** (Inter 500, not uppercase): `{points} / {denominator}` · `Ends {computed end}` · badge `Over capacity` when points > denominator. Cold start: `0 / 10` (or the Owner’s initial velocity). After the first completed window: denominator is capacity (full band: velocity times length in days; open window: remaining days times velocity).
-- **Backlog:** future **band** subheaders: `Ends {computed end}` · packed points / capacity for that band. Empty board: no fake headers (slice 0).
+- **Backlog:** future **band** subheaders: `Ends {computed end}` · packed points / capacity for that band. No stories: no fake band headers.
 - **Done:** flat accepted list that has aged past the current window, newest accepted first. No window groups.
 - **Icebox:** title + count only. Never a band header. Never a date.
 
@@ -461,7 +461,7 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 
 ---
 
-### Slice 0 — Sign up, organisation, project, empty board
+### Slice 0 — Sign up, organisation, project, Board
 
 **Screens:** `SignUp` → (`CheckEmail` if password) → `NameOrganisation` → `NameProject` → `Board` (four empty columns).
 
@@ -520,9 +520,11 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 - Error (blank): `Name the project.`
 - Success: `Board`.
 
-**Empty Board**
+**Board** (zero stories)
 
-Four `BoardColumn`s. Current header may show the computed band end and `0 / 10`. No fake stories. No fake Backlog band headers.
+The view is **Board**. Empty Icebox / Backlog / Current / Done is the zero state when the stories API returns no stories. Not a separate component.
+
+Four columns. Current header may show the computed band end and `0 / 10`. No fake stories. No fake Backlog band headers.
 
 | Column | Empty copy | One next action |
 | --- | --- | --- |
@@ -712,7 +714,7 @@ Icebox reorder is independent.
 
 | State | Copy | Next |
 | --- | --- | --- |
-| Empty ranked list | Current empty copy from slice 0 | Add or pull |
+| Empty ranked list | Current empty copy (zero stories) | Add or pull |
 | Left short | Header shows e.g. `6 / 10` on cold start. No apology chrome. | Start something if they mean to overflow |
 | Over (because Start) | Badge `Over capacity` | Finish the work; do not kick rows out |
 | Cold start | Header uses initial velocity **10**, never a fake 0 | — |
@@ -1258,7 +1260,7 @@ A reviewer can fail a build from this list without a meeting.
 - Palette is bloom / stem / paper / pollen / the four status hexes. No new brand colour.
 - Fraunces headings, Inter body, Lucide stroke 2.
 - Columns named Icebox, Backlog, Current, Done. Current header Bloom-highlighted. Icebox has no band header.
-- Empty Icebox / Backlog / Current / Done use the slice 0 sentences.
+- Empty Icebox / Backlog / Current / Done use the zero-state sentences.
 - `StoryRow` shows Type icon, EstimateChip (Feature), title, StateButton. StateButton is not hover-only and not inside More.
 - Unestimated Feature: Start refused with `Estimate this feature before you start it. 0 is fine.`
 - Accept stays in Current. Done empty until that work ages past the current window. No window groups.
