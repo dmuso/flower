@@ -2,8 +2,6 @@
 
 Eventual repo path: `docs/core-workflow/technical-approach.md`
 
-Local draft: `/workspace/flower-spec/technical-approach.md`
-
 Change name: `flower`
 
 This is the Technical Lead approach for implementers. It does not replace the product companions. It does not invent product rules.
@@ -711,13 +709,13 @@ QA tests each slice from its acceptance criteria **alone**, plus the companion r
 - Verified password signup: organisation + first project; creator is organisation owner and project owner; `point_scale = linear`, `iteration_length_days = 7`, `initial_velocity = 10`, `timezone = Australia/Melbourne` (until fork).
 - Magic link to a new email: user created, `email_verified_at` set, same org+project flow.
 - Login password and login magic link both land on last project.
-- Story list on a new project: empty; SPA shows four empty columns; velocity displays 10; no fake stories, no fake dates.
+- Story list on a new project: empty; SPA shows four empty columns; Current header shows `0 / 10` (points / initial velocity); no fake stories, no fake dates.
 - Reload: same organisation / project ids.
 - Cross-tenant: session A `GET` project/story id from org B → 404.
 
 **QA**
 
-- Stranger signs up, names organisation `Acme` and project `Trail`, sees Icebox / Backlog / Current / Done empty (Current may show dates + velocity 10).
+- Stranger signs up, names organisation `Acme` and project `Trail`, sees Icebox / Backlog / Current / Done empty (Current may show dates + `0 / 10`).
 - Sign out, sign in, same empty board. Fail if another tenant’s name appears.
 - Fail if a new palette appears (frontend guide).
 - Fail if unverified password user can create an organisation.
@@ -837,7 +835,7 @@ Normative tests = velocity doc worked examples 1–3 **and** its QA short script
 
 - New project velocity = 10. Five estimated Features totalling > 10: Current **short**, not over. Next Feature that would exceed 10 stays in the next Backlog band.
 - Never split.
-- Start a Backlog Feature that did not fit → Current, points may exceed 10, over-velocity badge.
+- Start a Backlog Feature that did not fit → Current, points may exceed 10, `Over capacity` badge.
 - Accept one Feature → still Current, not Done.
 - Advance test clock past window `ends_at` project timezone → that Feature in Done (flat list, newest accepted first). Accepted Features join the lookback if they fall in the last number of completed windows set by `velocity_strategy`; then velocity = work / time and pack uses `predicted_duration(estimate)`.
 - Reorder / estimate / accept / start / icebox / length change → board already recomputed. No window id written on the story.
@@ -898,6 +896,34 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 - **No fallbacks.** Dummy password hashes, silent estimate-on-start, “if planner fails return last board”, or catch-all `state = body.State` are firable. Fail closed with a coded error.
 - Do not ignore test, script, or lint errors.
 - Documentation-only changes: review the diff; do not run the code gates unless code changed.
+
+**Test filenames and names**
+
+Delivery increment names (slice 0, slice 1) live in the spec only. They are not domain, not user value, and not filenames.
+
+- A test file is named after the **code file it tests**, in the same package/directory: `app.go` → `app_test.go`, `service.go` → `service_test.go`, `repository.go` → `repository_test.go`.
+- The only extra suffix is integration: `app_integration_test.go`, `service_integration_test.go`.
+- Forbidden: `slice0_test.go`, `slice_0_signup_test.go`, any `*_more_test.go` / `*_extra_test.go` / `*_2_test.go`, or a name that describes the ticket, PR, or increment instead of the unit under test.
+- If tests for one file grow, they stay in that one `*_test.go` (or the integration sibling). Do not add a second file to “fit more in.”
+- Frontend: same idea. `Board.tsx` → `Board.test.ts` (or the repo’s existing suffix next to that file). Not `slice0.test.ts`.
+- Test function / case names are **black box**: user value, intent, or expected business outcome (`TestSignUpCreatesOrganisationAndFirstProject`). Not `TestSlice0`, `TestApp` with no outcome, or names that mention the increment or “more coverage.”
+- Tests sit beside the code they cover. Prefer the public surface (HTTP, exported service, UI behaviour).
+- Do not name packages, types, migrations, or fixtures `slice0` / `Slice0`. Do not leave increment numbers in code comments as if they were domain.
+
+**Test filename lint**
+
+A small custom checker (not a golangci plugin) walks every `*_test.go`. Hook it in `make lint` so CI cannot go green with a forbidden name present.
+
+Pairing is the rule: stripping `_test.go` must yield a same-directory `<stem>.go`. `service_test.go` needs `service.go`. Overflow and increment names fail because there is no matching source: `slice0_test.go` wants `slice0.go`; `app_more_test.go` wants `app_more.go`; `service_extra_test.go` wants `service_extra.go`; `foo_2_test.go` wants `foo_2.go`. Extra suffixes are not mapped back to the real unit.
+
+- Allow only `<stem>_integration_test.go` without a matching source (no `_more_`, `_extra_`, `_helpers_`, `_benchmark_`, ticket, or increment names as extra kinds).
+- If tests grow, merge into the existing `*_test.go` (or the integration sibling). Do not add a second file.
+- Also reject `slice[0-9]`, `_more_`, `_extra_`, and `_N_` in the basename even if someone adds a matching dummy `.go`.
+- Frontend twin: `Board.tsx` → `Board.test.ts` / `Board.test.tsx` next to it. Allow `*.integration.test.ts(x)`. Reject `slice0.test.ts` and extra mid-suffixes (`Widget.design.test.tsx`).
+- Error on stderr, exit 1: `<path>: unit test files must be named <code_file>_test.go with a same-directory <code_file>.go, or use <domain>_integration_test.go.` then `Test file name lint failed with N issue(s).`
+- No per-file allowlist. Skip only `.git` / `tmp` (and frontend `node_modules` / `dist`).
+- Invoke from the API as `go run ./cmd/tools/testfilenamelint .` and from the frontend lint script. Root `make lint` runs both. CI runs that same `make lint`.
+- Technical Lead owns the check; Developer keeps it green; QA fails a PR that ships forbidden names even if behaviour is right.
 
 **Types and API**
 
