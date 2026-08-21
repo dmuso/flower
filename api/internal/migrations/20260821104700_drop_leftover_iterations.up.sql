@@ -1,4 +1,4 @@
--- Idempotent leftover drop for DBs that already applied tenancy_auth before DROPs landed in that file.
+-- For DBs that already applied the tenancy/auth migration before the leftover DROPs were added.
 DROP INDEX IF EXISTS idx_stories_iteration_id;
 ALTER TABLE stories DROP CONSTRAINT IF EXISTS fk_stories_iteration_id;
 ALTER TABLE stories DROP COLUMN IF EXISTS iteration_id;
