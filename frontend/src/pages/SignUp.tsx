@@ -43,9 +43,9 @@ export function SignUpPage() {
 
   return (
     <AuthCard title="Sign up">
-      {mode() === "password" && (
-        <p class="text-sm text-ink-700">Email and a password. That’s enough to start.</p>
-      )}
+      <p class="text-sm text-ink-700">
+        {mode() === "magic" ? "Email is enough." : "Email and a password. That’s enough to start."}
+      </p>
       <form class="flex flex-col gap-4" onSubmit={onSubmit}>
         <label class="flex flex-col gap-1">
           <span class={labelClass}>Email</span>

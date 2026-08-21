@@ -4,15 +4,54 @@ import { Match, Switch, createResource } from "solid-js";
 import { EmptyBoard } from "../features/board";
 import { primaryButtonClass } from "../components/AuthCard";
 import { ApiRequestError } from "../lib/api/core";
-import { fetchMe, signOut } from "../lib/api/auth";
+import { fetchMe, signOut, type Me } from "../lib/api/auth";
 import { fetchProject } from "../lib/api/projects";
 import { fetchStories } from "../lib/api/stories";
+import { afterAuthPath } from "../lib/after-auth";
+
+type BoardFailure = ApiRequestError & { me?: Me };
+
+function withMe(err: unknown, me: Me): unknown {
+  if (err instanceof ApiRequestError) {
+    (err as BoardFailure).me = me;
+  }
+  return err;
+}
+
+function missingBoardHref(err: unknown): string {
+  if (err instanceof ApiRequestError) {
+    const me = (err as BoardFailure).me;
+    if (me) {
+      return afterAuthPath(me);
+    }
+  }
+  return "/organisations/new";
+}
 
 async function loadBoard(projectId: string) {
-  const [project, stories, me] = await Promise.all([fetchProject(projectId), fetchStories(projectId), fetchMe()]);
+  const [projectResult, storiesResult, meResult] = await Promise.allSettled([
+    fetchProject(projectId),
+    fetchStories(projectId),
+    fetchMe(),
+  ]);
+
+  if (meResult.status === "rejected") {
+    throw meResult.reason;
+  }
+  const me = meResult.value;
+
+  if (projectResult.status === "rejected") {
+    throw withMe(projectResult.reason, me);
+  }
+  if (storiesResult.status === "rejected") {
+    throw withMe(storiesResult.reason, me);
+  }
+
+  const project = projectResult.value;
+  const stories = storiesResult.value;
   const org = me.organisations.find((item) => item.id === project.organisation_id);
   if (!org) {
-    throw new ApiRequestError("We can’t find that.", 404);
+    throw withMe(new ApiRequestError("We can’t find that.", 404), me);
   }
   return { project, stories, organisationName: org.name };
 }
@@ -63,7 +102,7 @@ export function BoardPage() {
                   Sign in
                 </A>
               ) : (
-                <A class={primaryButtonClass} href="/organisations/new">
+                <A class={primaryButtonClass} href={missingBoardHref(board.error)}>
                   Back to your projects
                 </A>
               )}

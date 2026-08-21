@@ -35,11 +35,12 @@ describe("SignUpPage", () => {
     expect(screen.getByLabelText("Password")).toBeTruthy();
   });
 
-  it("flips to magic link and drops the password sentence", () => {
+  it("flips to magic link and shows Email is enough.", () => {
     renderSignUp();
     fireEvent.click(screen.getByRole("button", { name: "Email me a link instead" }));
     expect(screen.getByRole("button", { name: "Email me a link" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Use a password instead" })).toBeTruthy();
+    expect(screen.getByText("Email is enough.")).toBeTruthy();
     expect(screen.queryByText("Email and a password. That’s enough to start.")).toBeNull();
     expect(screen.queryByLabelText("Password")).toBeNull();
   });
