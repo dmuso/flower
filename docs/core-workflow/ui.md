@@ -471,13 +471,16 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 - Secondary: **Email me a link instead** (Secondary). Sign in link in the footer, quieter: `Already a user? Sign in`.
 - Fields: Email, Password. Username: **do not ask.** Infer from the email local-part. No username field in slice 0.
 - Confirm: none. They can sign out.
+- Magic mode (same screen): one next action **Email me a link**. Secondary flips to **Use a password instead**. Drop the password helper sentence. Field: Email only.
 
 | State | Copy | Next |
 | --- | --- | --- |
 | Empty | `Email and a password. That’s enough to start.` | `Sign up` |
+| Magic empty | `Email is enough.` | `Email me a link` |
 | Loading | `Signing you up…` | — |
 | Error (taken) | `That email already belongs to a user.` | `Sign in` |
 | Error (blank) | `Need an email and a password.` | Fix and `Sign up` |
+| Error (blank, magic) | `Need an email.` | Fix and `Email me a link` |
 | Success (password) | `Check your email to verify.` | Open mail; the verify link continues. |
 
 **CheckEmail / verify**
@@ -487,13 +490,13 @@ Phase 0 Features only unless noted. Bug / Chore / Release controls appear when s
 
 **Magic link (no user yet)**
 
-- One next action: **Email me a link**.
+- Same screen as SignUp, magic mode. One next action: **Email me a link**. Secondary: **Use a password instead**.
 - Success: `Check your email for a link.` Same organisation + project flow after the click.
 
 **SignIn**
 
 - One next action: **Sign in**.
-- Secondary: **Email me a link instead**.
+- Secondary: **Email me a link instead**. Magic mode: primary **Email me a link**, secondary **Use a password instead**.
 - Success: last project. If none (shouldn’t happen after slice 0): `NameOrganisation`.
 
 | State | Copy | Next |

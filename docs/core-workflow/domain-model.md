@@ -12,7 +12,7 @@ One domain package = one bounded context = one vertical slice of HTTP + service 
 
 Frontend: HTTP in `lib/api/<resource>.ts`. Thick-slice rules in `features/<slice>/domain/`. Screens in `pages/`.
 
-Always **user**. `activities.user_id` is the user (session or the user a token authenticates as). A token is a user credential, not an identity type. Planning / velocity is a **calculation**, not a time-box aggregate. There is no iteration table and no story-to-window foreign key.
+Always **user**. `activities.user_id` is the user (session or the user a token authenticates as). A token is a user credential, not an identity type. Planning / velocity is a **calculation**, not a time-box aggregate. There is no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks`. Length is `iteration_length_days`.
 
 ---
 
@@ -53,13 +53,13 @@ Always **user**. `activities.user_id` is the user (session or the user a token a
 
 **Invariants:** Feature start requires estimate (`0` allowed). Icebox Start is `unscheduled` → `started`. No `unstart`. `PATCH` does not write `state`. Member/Owner may accept/reject. Rank is `VARCHAR(64)` fractional. Icebox and ranked lists are independent. Unique `(project_id, rank_list, rank)`. Stories do not store which window or band they are in.
 
-**Must not own:** velocity math, organisation tenancy, tokens. Must not persist a story → window link. Accepting a Feature sets `accepted_at`; it does not store points.
+**Must not own:** velocity math, organisation tenancy, tokens. Must not import `planning`. Pack is injected via `ports.Planner`. Must not persist a story → window link. Accepting a Feature sets `accepted_at`; it does not store points.
 
 ---
 
 ## planning
 
-**Owns:** two pure functions — `velocity(...)` and `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands` — and the computed window dates. Nothing persisted. `predicted_duration` is a size → predicted-duration map; unused on cold start.
+**Owns:** two pure functions — `velocity(...)` and `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands` — and the computed window dates. Implements `ports.Planner`. Nothing persisted. `predicted_duration` is a size → predicted-duration map; unused on cold start.
 
 **Invariants:** planning / velocity is a **calculation**. There is no Iteration entity. The only stored settings are project `iteration_length_days`, start weekday, timezone, `velocity_strategy`, and `initial_velocity`. Windows and bands are computed and drawn in the UI. Recompute whenever stories, estimates, accepts, or settings change.
 

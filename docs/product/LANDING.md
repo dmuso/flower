@@ -45,13 +45,13 @@ Add links from `docs/README.md` to the new product and feature folders. Do not m
 
 - `docs/reference/frontend-design-guide.md` — look is locked (bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, column board).
 - `docs/reference/technology-choices.md` and other `docs/reference/*`.
-- `docs/migrations.md`, `docs/migration-usage.md`, `api/internal/migrations/*` (except when a later implementation slice adds a **new** schema-only migration).
+- `docs/migrations.md`, `docs/migration-usage.md`, `api/internal/migrations/*` (except Slice 0's additive migration, which produces this schema, and when a later implementation slice adds a **new** schema-only migration).
 
-## Schema (must match this model)
+## Schema (this is the schema)
 
 Core tables: `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`.
 
-Planning is a calculation. There is no `iterations` table. Velocity is live from stories; it is not persisted. Project length is `iteration_length_days` (default 7).
+There is no `iterations` table. Stories have no `iteration_id`. Velocity is live from stories; it is not persisted. Projects store `iteration_length_days` only (default 7). There is no `iteration_length_weeks`. Activities use `user_id`. Slice 0's additive migration produces this schema.
 
 Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, notifications, blockers, followers, API tokens, webhooks.
 
@@ -61,7 +61,7 @@ Notable choices:
 - `stories.title VARCHAR(500)` — product max is 500, not a tighter invented limit.
 - `story_type` and `state` are strings, not DB enums.
 - `activities.user_id` attributes each change to a `users` row. Product language is **user**. An API token authenticates as that user.
-- `projects` has `point_scale` and `iteration_length_days` (default 7). Organisation, timezone, velocity strategy, and bugs-and-chores-estimable land with their slices.
+- `projects` has `point_scale` and `iteration_length_days` (default 7). There is no `iteration_length_weeks`. Organisation, timezone, velocity strategy, and bugs-and-chores-estimable land with their slices.
 
 ## Ports (locked)
 

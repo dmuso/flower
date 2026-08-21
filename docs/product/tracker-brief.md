@@ -4,7 +4,7 @@ Classic Pivotal Tracker is the product we are rebuilding. This note is short on 
 
 If a later doc invents a third behaviour, this list plus the two companion files win.
 
-Tracker copied the **idea** of velocity windows: one ranked list, pack toward velocity, leave Current short, Start may overflow. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. Length is **days** on the project. The UI draws Current and future bands live from `pack`.
+Tracker copied the **idea** of velocity windows: one ranked list, pack toward velocity, leave Current short, Start may overflow. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. There is no `iterations` table. Stories have no `iteration_id`. Length is **days** (`iteration_length_days`) on the project. There is no `iteration_length_weeks`. The UI draws Current and future bands live from `pack`.
 
 ## Copy exactly
 
@@ -35,7 +35,7 @@ Tracker got these wrong, or the world changed. We are explicit.
 
 | Tracker | Flower |
 | --- | --- |
-| Persisted iteration records as the plan; stories assigned to an iteration | **Computed windows only.** Length in days (default 7) on the project. `pack` is a pure function. No iteration row, no story→window assignment. |
+| Persisted iteration records as the plan; stories assigned to an iteration | **Computed windows only.** Length in days (default 7) on the project as `iteration_length_days`. `pack` is a pure function. No `iterations` table, no `iteration_id`, no `iteration_length_weeks`. |
 | API token acts as the human who minted it | **User API tokens** (Bearer). Mint / list / revoke only on your own user: `GET|POST|DELETE /api/v1/users/:id/tokens`. No mint-for-another-user. Member cannot mint Owner. A Viewer may mint a token on their own user; it can only read. Same `/api/v1` as the app (cookie or Bearer, same handlers). No extra scopes. Activity is the **user**. No org-level mint path. |
 | “Bugs and chores may be estimated” could not be turned off | Same toggle is later, and it is **reversible**. |
 | Custom point scale could not be reverted | Custom scale is later and **must be revertible**. Fibonacci (`0,1,2,3,5,8`) and Powers of 2 (`0,1,2,4,8`) are later project settings. |

@@ -47,7 +47,7 @@ One ranked list, one Icebox, one velocity, one board. Lives in exactly one organ
 
 Creating a project: **organisation owner** only in MVP. Creator is a project owner.
 
-Project columns include `name`, `slug`, `description`, `point_scale`, **`iteration_length_days`** (default 7), and `organisation_id`. Timezone, velocity strategy, initial velocity, and bugs-and-chores-estimable land with their slices. `slug` is unique **per organisation**. Do not invent a new slug scheme in this spec.
+Project columns include `name`, `slug`, `description`, `point_scale`, **`iteration_length_days`** (default 7), and `organisation_id`. There is no `iteration_length_weeks`. Timezone, velocity strategy, initial velocity, and bugs-and-chores-estimable land with their slices. `slug` is unique **per organisation**. Do not invent a new slug scheme in this spec.
 
 ### Project membership and roles
 

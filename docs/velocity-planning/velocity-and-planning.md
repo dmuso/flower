@@ -4,7 +4,7 @@ Change name: `flower`
 
 This file is the planning product. If a slice, a mock, or an implementation disagrees with it, this file wins.
 
-Flower copies Tracker's *idea* of velocity windows: one ranked list, pack toward velocity, leave a band short rather than overfill. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. There is no `iterations` table. Stories are not assigned to a window. The only stored window size is `iteration_length_days`.
+Flower copies Tracker's *idea* of velocity windows: one ranked list, pack toward velocity, leave a band short rather than overfill. Flower does **not** persist Tracker-style iteration records as the plan. There is no Iteration aggregate. There is no `iterations` table. Stories have no `iteration_id`. The only stored window size is `iteration_length_days`. There is no `iteration_length_weeks`.
 
 Velocity is **live**. It is calculated from previous stories' start and end date/times (`started_at` → `accepted_at`). It is not written to persistence. We accept **stories**, not points.
 
@@ -19,7 +19,7 @@ Deltas versus Tracker are only those listed in [tracker-brief.md](./tracker-brie
 | **Story** | A row. Types: feature, bug, chore, release. |
 | **Estimate** | A point value from the project scale, or none. `0` is an estimate. Missing is unestimated (`estimate:-1` in search). |
 | **Priority** | Position in the **ranked** list (Backlog + Current + accepted-this-window). Icebox has its own order and is not in this list. |
-| **Length in days** | The only stored window size on the project. Default **7**. A positive integer the Owner may change. Not weeks. Not a list of rows. |
+| **Length in days** | The only stored window size on the project (`iteration_length_days`). Default **7**. A positive integer the Owner may change. There is no `iteration_length_weeks`. Not a list of rows. |
 | **Window (computed)** | A contiguous date range of that length in days, derived from start weekday + length in days + now + timezone. Never a stored entity. Never a story assignment. |
 | **Band** | A visual group the UI draws by running the pack function: Current is the open window; later bands sit in Backlog. |
 | **Icebox** | `unscheduled` holding pen. Not in velocity math. Not a pipeline stage. |
@@ -403,7 +403,7 @@ They Accept Checkout on **2 Sep** (next window). `duration` = first `started_at`
 
 ## What we will not do
 
-- Persist an Iteration as the plan. There is no `iterations` table. Stories are not assigned to a window.
+- Persist an Iteration as the plan. There is no `iterations` table. Stories have no `iteration_id`.
 - Persist `velocity`, `predicted_duration`, window totals, or accepted-point history. Those are calculated from stories.
 - Typed velocity override (“pretend we do 20”) except the **initial velocity** setting, which is bootstrap when `velocity` is undefined.
 - Drag-to-pin a story to a date. Start or reorder; do not staple to 6 Sep.
@@ -413,7 +413,7 @@ They Accept Checkout on **2 Sep** (next window). `duration` = first `started_at`
 - Per-person velocity.
 - Team strength % in MVP.
 - A date picker that overrides the plan. Release target date is a comparison only.
-- Store length as 1–4 weeks. Length is **days**.
+- Store length as 1–4 weeks or keep an `iteration_length_weeks` column. Length is **days** (`iteration_length_days` only).
 
 ## QA short script (slices 8 + 20)
 
@@ -424,5 +424,5 @@ They Accept Checkout on **2 Sep** (next window). `duration` = first `started_at`
 5. Place a Release at the end of a group. Set a target date. Confirm blue/red vs the **computed window start** that contains the marker.
 6. Drag unstarted above started. Must fail.
 7. Confirm Icebox stories never appear in Current via auto-plan.
-8. Confirm no story is assigned to an iteration row. Changing length in days replans live.
+8. Confirm no story has an `iteration_id`. Changing `iteration_length_days` replans live.
 9. After a second Feature of the **same estimate** is accepted, confirm `predicted_duration(estimate)` is the mean of the two durations and that pack uses that duration, not the estimate against an integer velocity.

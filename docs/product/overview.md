@@ -57,7 +57,7 @@ Core tables:
 - `story_labels`
 - `activities`
 
-Planning is a calculation. There is no `iterations` table. Stories are not assigned to a window. Length is **`iteration_length_days`** on the project. Velocity is live from story timestamps and estimates; it is not persisted. `activities.user_id` is the user who did the thing.
+This is the schema. There is no `iterations` table. Stories have no `iteration_id`. Length is **`iteration_length_days`** on the project. There is no `iteration_length_weeks`. Velocity is live from story timestamps and estimates; it is not persisted. `activities.user_id` is the user who did the thing. Slice 0's additive migration produces this schema.
 
 Business rules (allowed state transitions, who can accept a story, how ranking and `pack` work) belong in `api/internal/domain/<domain>`, not in the database. See [domain-model.md](../core-workflow/domain-model.md).
 

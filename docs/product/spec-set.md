@@ -43,7 +43,7 @@ Four story types, **different state machines** (classic Tracker):
 
 Humans estimate Features (0 is valid). A Feature cannot be started without an estimate. Bugs and chores are unestimated by default and do not count toward velocity. Velocity is a live rate from completed Features’ `started_at` → `accepted_at` (lookback: last number of completed windows set by `velocity_strategy`, default 3, setting 1–4). Stories accepted in the **open** window are not in the lookback. Until at least one corpus Feature exists in a **completed** window (or `time == 0`), `velocity` is undefined and pack uses `initial_velocity` (default 10) as estimate-points that fit in a full window. Incomplete stories pack by `predicted_duration(estimate)`. Auto-plan **leaves Current short** rather than overfilling with the next story. Starting a Backlog or Icebox story jumps it to Current and may overflow.
 
-Length is **days** (default 7), stored on the project. Flower does not persist Tracker-style iteration records as the plan. `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. `predicted_duration` is a size → predicted-duration map; unused on cold start. Stories are not assigned to a window row.
+Length is **days** (default 7), stored on the project as `iteration_length_days`. There is no `iteration_length_weeks`. Flower does not persist Tracker-style iteration records as the plan. `pack(ordered_stories, velocity, predicted_duration, iteration_length_days, now, timezone) → bands`. `predicted_duration` is a size → predicted-duration map; unused on cold start. Stories have no `iteration_id`.
 
 Any **Member** or Owner can accept. The requester *should*. My Work surfaces their Delivered stories. There is no accept ACL lock in MVP. History is undo. Viewers are read-only.
 
@@ -77,13 +77,13 @@ Treat as given. Do not redesign in this spec.
 | Shape | Monorepo, Nix Shell + Docker Compose + Make |
 | Tenancy | Multitenant from day one (organisations) |
 | Look | bloom `#C43B6E`, stem `#2F7D4A`, paper `#FBF7F2`, Fraunces + Inter, Lucide, column board — `docs/reference/frontend-design-guide.md` |
-| Core schema | `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. `projects.iteration_length_days`. `activities.user_id`. No `iterations` table. |
+| Core schema | `users`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`. `projects.iteration_length_days` only. No `iteration_length_weeks`. Stories have no `iteration_id`. `activities.user_id`. No `iterations` table. |
 | Added by slices | organisations, story owners, comments, tasks, attachments, epics, `api_tokens`, notifications, webhooks |
 | Domain | `api/internal/domain/<domain>`; frontend split by domain — [domain-model.md](../core-workflow/domain-model.md) |
 | Spelling | UK / AU / NZ (`organisations`, not `organizations`) |
 | Migrations | Schema-only. No DB enums, triggers, or functions. Business rules in the Go domain packages. |
 
-Schema must match this model. Planning is a calculation: no `iterations` table. Velocity is live from stories and is not persisted. New slices add tables (owners, comments, tasks, organisations, tokens, webhooks) without inventing a second planning store.
+This is the schema. Planning is a calculation: no `iterations` table, no `stories.iteration_id`, no `iteration_length_weeks`. Projects store `iteration_length_days` only. Velocity is live from stories and is not persisted. Activities use `user_id`. Slice 0's additive migration produces this schema. New slices add tables (owners, comments, tasks, organisations, tokens, webhooks) without inventing a second planning store.
 
 Architecture lives in [technical-approach.md](../core-workflow/technical-approach.md).
 

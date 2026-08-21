@@ -147,11 +147,11 @@ No estimate. Optional **target date** (a comparison, not a plan override). Place
 
 ## Schema
 
-Schema must match this model.
+This is the schema. Slice 0's additive migration produces it.
 
-Core: `users`, `projects`, `project_memberships`, `stories` (incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `started_at`, `accepted_at`), `labels`, `story_labels`, `activities` (`user_id` = the user who did the thing).
+Core: `users`, `projects`, `project_memberships`, `stories` (no `iteration_id`; incl. `requester_id`, `estimate`, `rank`, `state`, `story_type`, `started_at`, `accepted_at`), `labels`, `story_labels`, `activities` (`user_id` = the user who did the thing).
 
-Planning is a calculation. There is no `iterations` table. Length is **`iteration_length_days`** on the project (default 7). Velocity is live from story timestamps and estimates; it is not persisted. Product language is **user**.
+Planning is a calculation. There is no `iterations` table. Stories have no `iteration_id`. Projects store **`iteration_length_days`** only (default 7). There is no `iteration_length_weeks`. Velocity is live from story timestamps and estimates; it is not persisted. Product language is **user**.
 
 Slices add tables they need: organisations, story owners, comments, tasks, attachments, epics, blockers, followers, tokens, webhooks.
 
@@ -180,6 +180,7 @@ Acceptance criteria:
 - Columns follow `docs/reference/frontend-design-guide.md` (full-height, paper, bloom current highlight). Fail if a new palette appears.
 - Unverified password signup cannot create an organisation.
 - Creator is organisation owner and project owner.
+- Slice 0's additive migration produces this schema: no `iterations` table, stories have no `iteration_id`, projects store `iteration_length_days` only (no `iteration_length_weeks`), activities use `user_id`.
 - Reload stays in `Acme` / `Trail`, not another tenant.
 
 ### Slice 1 — Owner invites a member with a role
@@ -289,10 +290,10 @@ Acceptance criteria:
 - A story is never split. If the next Feature’s predicted duration (or bootstrap cost) does not fit remaining budget, it stays in the next Backlog **band**.
 - Reorder, estimate, accept, start, icebox, length change, or window end → plan already recomputed. No Recalculate button.
 - Accepted this window: still in Current until the current window ends. After the window ends: those accepted stories are in Done as a **flat** list (newest accepted first), not grouped by a window row.
-- Length default **7 days**. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. Not a stored iteration list.
+- Length default **7 days**, stored as `iteration_length_days`. Owner may set a positive number of days. Changing length replans. Not 1–4 weeks. There is no `iteration_length_weeks`. Not a stored iteration list.
 - Bugs/chores/releases are not required for this slice (Features only). When they exist, they follow the velocity doc.
 - An oversized Feature (`predicted_duration(estimate)` exceeds a full window of `iteration_length_days`; cold start: cost > 10) auto-fills only into a band with no packed estimated work and marks that band over capacity; it never sits unpacked.
-- Fail the slice if the planner persists window rows, persists velocity, or assigns a story to a window, or if Current is labelled “iteration 3”.
+- Fail the slice if the planner persists window rows, persists velocity, or assigns a story `iteration_id`, or if Current is labelled “iteration 3”.
 
 Phase 0 is not done without slice 8.
 
