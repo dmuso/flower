@@ -31,11 +31,12 @@ run: ## Run the API locally
 
 test: ## Run tests
 	@echo "Running tests..."
-	@$(GO) test $(GOFLAGS) -count=1 ./...
+	@$(GO) test $(GOFLAGS) -p 1 -count=1 ./...
 
 lint: ## Run linting
 	@echo "Running linting..."
 	@golangci-lint run ./cmd/... ./internal/...
+	@go run ./cmd/tools/testfilenamelint .
 
 clean: ## Clean up build artefacts
 	@echo "Cleaning up build artefacts..."

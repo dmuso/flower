@@ -11,7 +11,7 @@ import (
 func TestCORSAllowsConfiguredMethodsAndHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(CORS())
+	router.Use(CORS("http://localhost:4273"))
 	router.GET("/health", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})
@@ -23,8 +23,11 @@ func TestCORSAllowsConfiguredMethodsAndHeaders(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status: got %d, want %d", rec.Code, http.StatusNoContent)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
-		t.Fatalf("Allow-Origin: got %q, want %q", got, "*")
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:4273" {
+		t.Fatalf("Allow-Origin: got %q, want %q", got, "http://localhost:4273")
+	}
+	if rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatal("expected credentials allowed")
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); got == "" {
 		t.Fatal("expected Access-Control-Allow-Methods to be set")
@@ -34,7 +37,7 @@ func TestCORSAllowsConfiguredMethodsAndHeaders(t *testing.T) {
 func TestCORSHandlesPreflight(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(CORS())
+	router.Use(CORS("http://localhost:4273"))
 	router.GET("/health", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

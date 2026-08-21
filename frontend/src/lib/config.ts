@@ -11,4 +11,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
 
 export const ROUTES = {
   home: "/",
+  signIn: "/signin",
+  checkEmail: "/check-email",
+  nameOrganisation: "/organisations/new",
 } as const;
