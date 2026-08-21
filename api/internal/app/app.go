@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"flower/api/internal/domain/organisation"
+	"flower/api/internal/domain/planning"
 	"flower/api/internal/domain/project"
 	"flower/api/internal/domain/story"
 	"flower/api/internal/domain/tenancy"
@@ -112,7 +113,9 @@ func New(cfg *config.Config, opts ...Option) (*App, error) {
 	userSvc := user.NewService(userRepo, o.Clock, mailer, cfg.FrontendOrigin, dir)
 	orgSvc := organisation.NewService(orgRepo, userRepo)
 	projectSvc := project.NewService(projectRepo, access)
-	storySvc := story.NewService(dbConn, access, o.Clock)
+	planner := planning.NewPlanner(o.Clock, projectRepo.WindowSettings)
+	storyRepo := story.NewRepository(dbConn)
+	storySvc := story.NewService(storyRepo, access, planner)
 
 	remember := func(c *gin.Context, projectID string) error {
 		u := middleware.CurrentUser(c)

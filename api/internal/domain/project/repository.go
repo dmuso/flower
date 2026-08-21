@@ -39,12 +39,11 @@ func (r *Repository) Create(ctx context.Context, userID, organisationID, name st
 			return err
 		}
 		p.Slug = slug
-		// iteration_length_weeks is a leftover NOT NULL column from 000001. Set 1 so inserts succeed. Do not write iterations.
 		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO projects (
-				organisation_id, name, slug, point_scale, iteration_length_weeks,
+				organisation_id, name, slug, point_scale,
 				timezone, velocity_strategy, initial_velocity, iteration_start_weekday, iteration_length_days
-			) VALUES ($1, $2, $3, $4, 1, $5, $6, $7, $8, $9)
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id, created_at
 		`, organisationID, name, slug, p.PointScale, p.Timezone, p.VelocityStrategy, p.InitialVelocity, p.IterationStartWeekday, p.IterationLengthDays).Scan(&p.ID, &p.CreatedAt); err != nil {
 			return fmt.Errorf("project: insert: %w", err)
@@ -153,4 +152,19 @@ func (r *Repository) Project(ctx context.Context, projectID string) (*ports.Proj
 		return nil, err
 	}
 	return &ports.ProjectInfo{ID: p.ID, OrganisationID: p.OrganisationID, Name: p.Name, Slug: p.Slug}, nil
+}
+
+func (r *Repository) WindowSettings(ctx context.Context, projectID string) (ports.ProjectWindow, error) {
+	var w ports.ProjectWindow
+	err := r.db.QueryRowContext(ctx, `
+		SELECT timezone, created_at, iteration_length_days, iteration_start_weekday, initial_velocity
+		FROM projects WHERE id = $1
+	`, projectID).Scan(&w.Timezone, &w.CreatedAt, &w.LengthDays, &w.StartWeekday, &w.InitialVelocity)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ports.ProjectWindow{}, types.ErrNotFound
+	}
+	if err != nil {
+		return ports.ProjectWindow{}, fmt.Errorf("project: window settings: %w", err)
+	}
+	return w, nil
 }

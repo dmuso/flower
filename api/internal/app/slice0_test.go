@@ -97,12 +97,34 @@ func TestVerifiedPasswordSignupCreatesOrgAndProjectAsOwner(t *testing.T) {
 		t.Fatalf("project role %q", projectRole)
 	}
 
-	var leftover int
-	if err := h.DB.QueryRow(`SELECT COUNT(1) FROM iterations WHERE project_id = $1`, projectID).Scan(&leftover); err != nil {
-		t.Fatalf("iterations: %v", err)
+	var leftoverTable bool
+	if err := h.DB.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name = 'iterations'
+	)`).Scan(&leftoverTable); err != nil {
+		t.Fatalf("iterations table: %v", err)
 	}
-	if leftover != 0 {
-		t.Fatalf("must not write leftover iterations, got %d", leftover)
+	if leftoverTable {
+		t.Fatal("iterations table must be dropped")
+	}
+	var leftoverWeeks, leftoverIterationID bool
+	if err := h.DB.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'projects' AND column_name = 'iteration_length_weeks'
+	)`).Scan(&leftoverWeeks); err != nil {
+		t.Fatalf("weeks column: %v", err)
+	}
+	if leftoverWeeks {
+		t.Fatal("projects.iteration_length_weeks must be dropped")
+	}
+	if err := h.DB.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'stories' AND column_name = 'iteration_id'
+	)`).Scan(&leftoverIterationID); err != nil {
+		t.Fatalf("iteration_id column: %v", err)
+	}
+	if leftoverIterationID {
+		t.Fatal("stories.iteration_id must be dropped")
 	}
 
 	stories := h.Do(http.MethodGet, "/api/v1/projects/"+projectID+"/stories", nil, cookie)

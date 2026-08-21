@@ -94,7 +94,7 @@ func (h *Harness) Reset() {
 	_, err := h.DB.Exec(`
 		TRUNCATE
 			email_outbox, auth_tokens, sessions,
-			story_labels, labels, stories, activities, iterations,
+			story_labels, labels, stories, activities,
 			project_memberships, organisation_memberships,
 			projects, organisations, users
 		RESTART IDENTITY CASCADE
