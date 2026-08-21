@@ -42,24 +42,31 @@ func TestStorySourceDoesNotImportPlanningOrProjects(t *testing.T) {
 	if !ok {
 		t.Fatal("caller")
 	}
-	entries, err := os.ReadDir(filepath.Dir(file))
+	dir := filepath.Dir(file)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	planningImport := strings.Join([]string{"domain", "planning"}, "/")
+	projectsSQL := strings.Join([]string{"FROM", "projects"}, " ")
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(filepath.Dir(file), e.Name()))
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
 		src := string(b)
-		if strings.Contains(src, "domain/planning") {
-			t.Fatalf("%s imports domain/planning", e.Name())
+		if strings.Contains(src, planningImport) {
+			t.Fatalf("%s imports planning", name)
 		}
-		if strings.Contains(src, "FROM projects") {
-			t.Fatalf("%s SELECTs FROM projects", e.Name())
+		if strings.Contains(src, projectsSQL) {
+			t.Fatalf("%s SELECTs projects", name)
 		}
 	}
 }
