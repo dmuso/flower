@@ -41,12 +41,14 @@ func Logger(skipPaths ...string) gin.HandlerFunc {
 	}
 }
 
-func CORS() gin.HandlerFunc {
+func CORS(origin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, If-None-Match, If-Match")
 		c.Header("Access-Control-Expose-Headers", "Content-Disposition, Content-Length, ETag")
+		c.Header("Vary", "Origin")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)

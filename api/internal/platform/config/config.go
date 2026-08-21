@@ -17,11 +17,13 @@ var (
 )
 
 type Config struct {
-	Version     string
-	Environment string
-	LogLevel    string
-	APIPort     string
-	Database    DatabaseConfig
+	Version         string
+	Environment     string
+	LogLevel        string
+	APIPort         string
+	FrontendOrigin  string
+	CookieSecure    bool
+	Database        DatabaseConfig
 }
 
 type DatabaseConfig struct {
@@ -39,13 +41,14 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("load env files error: %w", err)
 	}
 
-	missing := make([]string, 0, 6)
+	missing := make([]string, 0, 7)
 	dbHost := mustEnv("DB_HOST", &missing)
 	dbPort := mustEnv("DB_PORT", &missing)
 	dbUser := mustEnv("DB_USER", &missing)
 	dbPassword := mustEnv("DB_PASSWORD", &missing)
 	dbName := mustEnv("DB_NAME", &missing)
 	dbSSLMode := mustEnv("DB_SSL_MODE", &missing)
+	frontendOrigin := mustEnv("FRONTEND_ORIGIN", &missing)
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
@@ -56,10 +59,12 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		Version:     getEnv("VERSION", "dev"),
-		Environment: environment,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		APIPort:     apiPort,
+		Version:        getEnv("VERSION", "dev"),
+		Environment:    environment,
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		APIPort:        apiPort,
+		FrontendOrigin: frontendOrigin,
+		CookieSecure:   environment == "production" || environment == "prod",
 		Database: DatabaseConfig{
 			Host:     dbHost,
 			Port:     dbPort,

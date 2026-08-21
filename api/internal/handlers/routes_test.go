@@ -5,11 +5,27 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"flower/api/internal/domain/organisation"
+	"flower/api/internal/domain/project"
+	"flower/api/internal/domain/story"
+	"flower/api/internal/domain/user"
+
 	"github.com/gin-gonic/gin"
 )
 
+func testDeps() *Dependencies {
+	return &Dependencies{
+		Version:       "dev",
+		Pinger:        stubPinger{},
+		Users:         &user.Handler{},
+		Organisations: &organisation.Handler{},
+		Projects:      &project.Handler{},
+		Stories:       &story.Handler{},
+	}
+}
+
 func TestSetupRoutesRejectsNilRouter(t *testing.T) {
-	err := SetupRoutes(nil, &Dependencies{Version: "dev"})
+	err := SetupRoutes(nil, testDeps())
 	if err == nil {
 		t.Fatal("expected nil router to fail")
 	}
@@ -31,10 +47,18 @@ func TestSetupRoutesRejectsEmptyVersion(t *testing.T) {
 	}
 }
 
+func TestSetupRoutesRejectsMissingDomainHandlers(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	err := SetupRoutes(gin.New(), &Dependencies{Version: "dev", Pinger: stubPinger{}})
+	if err == nil {
+		t.Fatal("expected missing handlers to fail")
+	}
+}
+
 func TestSetupRoutesRegistersCoreEndpoints(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	if err := SetupRoutes(router, &Dependencies{Version: "dev", Pinger: stubPinger{}}); err != nil {
+	if err := SetupRoutes(router, testDeps()); err != nil {
 		t.Fatalf("SetupRoutes: %v", err)
 	}
 

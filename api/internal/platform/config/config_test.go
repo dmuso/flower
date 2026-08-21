@@ -28,7 +28,7 @@ func clearConfigEnv(t testing.TB) {
 	loadedEnvFileValues = make(map[string]string)
 	envFileStateMu.Unlock()
 	for _, key := range []string{
-		"ENVIRONMENT", "VERSION", "LOG_LEVEL", "API_PORT",
+		"ENVIRONMENT", "VERSION", "LOG_LEVEL", "API_PORT", "FRONTEND_ORIGIN",
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE",
 	} {
 		if err := os.Unsetenv(key); err != nil {
@@ -45,6 +45,7 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("DB_PASSWORD", "secret")
 	t.Setenv("DB_NAME", "flower_test")
 	t.Setenv("DB_SSL_MODE", "disable")
+	t.Setenv("FRONTEND_ORIGIN", "http://localhost:4273")
 }
 
 func TestLoadRejectsMissingDatabaseSettings(t *testing.T) {
@@ -103,6 +104,12 @@ func TestLoadReadsRequiredDatabaseSettings(t *testing.T) {
 	}
 	if cfg.Database.SSLMode != "disable" {
 		t.Fatalf("db ssl mode: got %q, want %q", cfg.Database.SSLMode, "disable")
+	}
+	if cfg.FrontendOrigin != "http://localhost:4273" {
+		t.Fatalf("frontend origin: got %q", cfg.FrontendOrigin)
+	}
+	if cfg.CookieSecure {
+		t.Fatal("cookie secure should be false in test")
 	}
 }
 

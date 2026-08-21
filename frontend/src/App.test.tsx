@@ -21,8 +21,9 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders the home route", async () => {
+  it("renders the sign up route", async () => {
     render(() => <App />);
-    expect(await screen.findByRole("heading", { name: "Plan work the way it actually ships." })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Sign up" })).toBeTruthy();
+    expect(screen.getByText("Email and a password. That’s enough to start.")).toBeTruthy();
   });
 });

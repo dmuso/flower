@@ -4,6 +4,7 @@ import { ROUTES, resolveApiBaseUrl } from "./config";
 describe("config", () => {
   it("exposes stable paths", () => {
     expect(ROUTES.home).toBe("/");
+    expect(ROUTES.signIn).toBe("/signin");
   });
 
   it("reads FRONTEND_API_URL from the environment", () => {

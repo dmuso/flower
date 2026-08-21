@@ -8,10 +8,19 @@ import (
 	"net/http"
 	"time"
 
+	"flower/api/internal/domain/organisation"
+	"flower/api/internal/domain/project"
+	"flower/api/internal/domain/story"
+	"flower/api/internal/domain/tenancy"
+	"flower/api/internal/domain/user"
 	"flower/api/internal/handlers"
+	"flower/api/internal/platform/auth"
+	clk "flower/api/internal/platform/clock"
 	"flower/api/internal/platform/config"
 	"flower/api/internal/platform/db"
+	"flower/api/internal/platform/email"
 	"flower/api/internal/platform/middleware"
+	"flower/api/internal/ports"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -29,9 +38,29 @@ type App struct {
 	rootCancel context.CancelFunc
 }
 
-func New(cfg *config.Config) (*App, error) {
+type Option func(*options)
+
+type options struct {
+	Clock ports.Clock
+}
+
+func WithClock(clock ports.Clock) Option {
+	return func(o *options) {
+		o.Clock = clock
+	}
+}
+
+func New(cfg *config.Config, opts ...Option) (*App, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
+	}
+
+	o := options{Clock: clk.System{}}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.Clock == nil {
+		return nil, fmt.Errorf("clock is required")
 	}
 
 	logger, err := newLogger(cfg)
@@ -72,11 +101,36 @@ func New(cfg *config.Config) (*App, error) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.Logger("/health"))
-	router.Use(middleware.CORS())
+	router.Use(middleware.CORS(cfg.FrontendOrigin))
+
+	userRepo := user.NewRepository(dbConn)
+	orgRepo := organisation.NewRepository(dbConn)
+	projectRepo := project.NewRepository(dbConn)
+	access := tenancy.NewService(dbConn)
+	dir := &directory{orgs: orgRepo, projects: projectRepo}
+	mailer := email.NewOutbox()
+	userSvc := user.NewService(userRepo, o.Clock, mailer, cfg.FrontendOrigin, dir)
+	orgSvc := organisation.NewService(orgRepo, userRepo)
+	projectSvc := project.NewService(projectRepo, access)
+	storySvc := story.NewService(dbConn, access, o.Clock)
+
+	remember := func(c *gin.Context, projectID string) error {
+		u := middleware.CurrentUser(c)
+		if u == nil {
+			return fmt.Errorf("remember project: no session user")
+		}
+		return userSvc.RememberProject(c.Request.Context(), u.UserID, u.SessionID, projectID)
+	}
+
+	router.Use(middleware.Session(userSvc.LookupSession, auth.HashToken))
 
 	if err := handlers.SetupRoutes(router, &handlers.Dependencies{
-		Version: cfg.Version,
-		Pinger:  dbConn,
+		Version:       cfg.Version,
+		Pinger:        dbConn,
+		Users:         user.NewHandler(userSvc, cfg.CookieSecure),
+		Organisations: organisation.NewHandler(orgSvc),
+		Projects:      project.NewHandler(projectSvc, remember),
+		Stories:       story.NewHandler(storySvc, remember),
 	}); err != nil {
 		if closeErr := dbConn.Close(); closeErr != nil {
 			logger.Error("failed to close database after route setup error",
