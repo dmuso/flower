@@ -1,4 +1,4 @@
--- Slice 0: organisations, auth sessions/tokens, email outbox, project tenancy.
+-- Organisations, auth sessions/tokens, email outbox, project tenancy.
 -- Additive tenancy/auth. Drops leftover iteration storage: planning is a calculation.
 
 CREATE TABLE organisations (

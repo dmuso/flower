@@ -23,7 +23,7 @@ function renderBoard() {
 }
 
 describe("EmptyBoard", () => {
-  it("renders four empty columns with slice 0 copy and 0 / 10", () => {
+  it("renders four empty columns with empty-state copy and 0 / 10", () => {
     renderBoard();
     expect(screen.getByText("Acme")).toBeTruthy();
     expect(screen.getByText("Trail")).toBeTruthy();

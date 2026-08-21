@@ -8,7 +8,7 @@ beforeEach(() => cleanup());
 afterEach(() => cleanup());
 
 describe("VerifyEmailBlock", () => {
-  it("shows slice 0 verify copy and resend as the primary next action", () => {
+  it("shows verify-email copy and resend as the primary next action", () => {
     render(() => <VerifyEmailBlock onResend={() => undefined} resent={false} />);
     expect(screen.getByText("Verify your email to continue.")).toBeTruthy();
     const resend = screen.getByRole("button", { name: "Resend the email" });

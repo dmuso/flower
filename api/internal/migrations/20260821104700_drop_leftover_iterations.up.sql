@@ -1,4 +1,4 @@
--- Idempotent leftover drop for DBs that already applied slice0 before DROPs landed in that file.
+-- Idempotent leftover drop for DBs that already applied tenancy_auth before DROPs landed in that file.
 DROP INDEX IF EXISTS idx_stories_iteration_id;
 ALTER TABLE stories DROP CONSTRAINT IF EXISTS fk_stories_iteration_id;
 ALTER TABLE stories DROP COLUMN IF EXISTS iteration_id;
