@@ -54,6 +54,7 @@ func SetupRoutes(router *gin.Engine, deps *Dependencies) error {
 	v1.POST("/auth/magic-link", deps.Users.MagicLink)
 	v1.POST("/auth/magic-link/consume", deps.Users.ConsumeMagicLink)
 	v1.POST("/auth/verify-email/consume", deps.Users.ConsumeVerifyEmail)
+	v1.POST("/auth/verify-email", middleware.RequireUser(), deps.Users.ResendVerifyEmail)
 	v1.POST("/auth/logout", deps.Users.Logout)
 	v1.GET("/me", middleware.RequireUser(), deps.Users.Me)
 	v1.POST("/organisations", middleware.RequireUser(), deps.Organisations.Create)

@@ -12,10 +12,12 @@ export function SignUpPage() {
   const [mode, setMode] = createSignal<"password" | "magic">("password");
   const [error, setError] = createSignal("");
   const [loading, setLoading] = createSignal(false);
+  const [taken, setTaken] = createSignal(false);
 
   async function onSubmit(event: Event) {
     event.preventDefault();
     setError("");
+    setTaken(false);
     setLoading(true);
     try {
       if (mode() === "magic") {
@@ -28,6 +30,7 @@ export function SignUpPage() {
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 409) {
         setError("That email already belongs to a user.");
+        setTaken(true);
       } else if (err instanceof ApiRequestError) {
         setError(err.message);
       } else {
@@ -40,7 +43,9 @@ export function SignUpPage() {
 
   return (
     <AuthCard title="Sign up">
-      <p class="text-sm text-ink-700">Email and a password. That’s enough to start.</p>
+      {mode() === "password" && (
+        <p class="text-sm text-ink-700">Email and a password. That’s enough to start.</p>
+      )}
       <form class="flex flex-col gap-4" onSubmit={onSubmit}>
         <label class="flex flex-col gap-1">
           <span class={labelClass}>Email</span>
@@ -53,7 +58,7 @@ export function SignUpPage() {
             onInput={(e) => setEmail(e.currentTarget.value)}
           />
         </label>
-        {mode() === "password" && (
+        {mode() === "password" && !taken() && (
           <label class="flex flex-col gap-1">
             <span class={labelClass}>Password</span>
             <input
@@ -71,26 +76,36 @@ export function SignUpPage() {
             {error()}
           </p>
         )}
-        <button class={primaryButtonClass} type="submit" disabled={loading()}>
-          {loading() ? (mode() === "magic" ? "Sending…" : "Signing you up…") : mode() === "magic" ? "Email me a link" : "Sign up"}
-        </button>
-        <button
-          class={secondaryButtonClass}
-          type="button"
-          onClick={() => {
-            setMode(mode() === "password" ? "magic" : "password");
-            setError("");
-          }}
-        >
-          Email me a link instead
-        </button>
+        {taken() ? (
+          <A class={primaryButtonClass} href="/signin">
+            Sign in
+          </A>
+        ) : (
+          <button class={primaryButtonClass} type="submit" disabled={loading()}>
+            {loading() ? (mode() === "magic" ? "Sending…" : "Signing you up…") : mode() === "magic" ? "Email me a link" : "Sign up"}
+          </button>
+        )}
+        {!taken() && (
+          <button
+            class={secondaryButtonClass}
+            type="button"
+            onClick={() => {
+              setMode(mode() === "password" ? "magic" : "password");
+              setError("");
+            }}
+          >
+            {mode() === "password" ? "Email me a link instead" : "Use a password instead"}
+          </button>
+        )}
       </form>
-      <p class="text-sm text-ink-700">
-        Already a user?{" "}
-        <A class="text-bloom" href="/signin">
-          Sign in
-        </A>
-      </p>
+      {!taken() && (
+        <p class="text-sm text-ink-700">
+          Already a user?{" "}
+          <A class="text-bloom" href="/signin">
+            Sign in
+          </A>
+        </p>
+      )}
     </AuthCard>
   );
 }

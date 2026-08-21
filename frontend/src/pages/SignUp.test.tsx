@@ -35,7 +35,16 @@ describe("SignUpPage", () => {
     expect(screen.getByLabelText("Password")).toBeTruthy();
   });
 
-  it("shows taken-email copy", async () => {
+  it("flips to magic link and drops the password sentence", () => {
+    renderSignUp();
+    fireEvent.click(screen.getByRole("button", { name: "Email me a link instead" }));
+    expect(screen.getByRole("button", { name: "Email me a link" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Use a password instead" })).toBeTruthy();
+    expect(screen.queryByText("Email and a password. That’s enough to start.")).toBeNull();
+    expect(screen.queryByLabelText("Password")).toBeNull();
+  });
+
+  it("shows taken-email copy with Sign in as the next action", async () => {
     globalThis.fetch = mock(async () => {
       return new Response(JSON.stringify({ error: { code: "email_taken", message: "That email already belongs to a user." } }), {
         status: 409,
@@ -47,6 +56,8 @@ describe("SignUpPage", () => {
     fireEvent.input(screen.getByLabelText("Password"), { target: { value: "secret12" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     expect((await screen.findByTestId("signup-error")).textContent).toBe("That email already belongs to a user.");
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign up" })).toBeNull();
   });
 
   it("uses only the locked palette classes", () => {

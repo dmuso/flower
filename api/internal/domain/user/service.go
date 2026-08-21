@@ -19,11 +19,11 @@ import (
 const bcryptCost = 12
 
 type Service struct {
-	repo     *Repository
-	clock    ports.Clock
-	mailer   ports.Mailer
-	origin   string
-	dir      ports.Directory
+	repo   *Repository
+	clock  ports.Clock
+	mailer ports.Mailer
+	origin string
+	dir    ports.Directory
 }
 
 func NewService(repo *Repository, clock ports.Clock, mailer ports.Mailer, origin string, dir ports.Directory) *Service {
@@ -226,6 +226,32 @@ func (s *Service) ConsumeVerifyEmail(ctx context.Context, rawToken string) (stri
 	}
 	me, err := s.Me(ctx, user.ID)
 	return raw, expires, me, err
+}
+
+func (s *Service) ResendVerifyEmail(ctx context.Context, userID string) error {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if u.EmailVerifiedAt != nil {
+		return nil
+	}
+	now := s.clock.Now()
+	raw, err := auth.RandomToken()
+	if err != nil {
+		return err
+	}
+	return s.repo.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := s.repo.CreateAuthToken(ctx, tx, KindVerifyEmail, u.Email, auth.HashToken(raw), now.Add(TokenTTL)); err != nil {
+			return err
+		}
+		return s.mailer.Enqueue(ctx, tx, ports.MailMessage{
+			Kind:    KindVerifyEmail,
+			To:      u.Email,
+			Subject: "Verify your Flower email",
+			Body:    "Verify your email for Flower.\n\n" + s.origin + "/verify-email?token=" + raw + "\n",
+		})
+	})
 }
 
 func (s *Service) Logout(ctx context.Context, sessionID string) error {

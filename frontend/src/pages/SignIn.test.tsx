@@ -24,6 +24,18 @@ describe("SignInPage", () => {
     expect(screen.getByRole("button", { name: "Email me a link instead" })).toBeTruthy();
   });
 
+  it("flips the secondary after choosing a magic link", () => {
+    render(() => (
+      <Router>
+        <Route path="/" component={SignInPage} />
+      </Router>
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Email me a link instead" }));
+    expect(screen.getByRole("button", { name: "Email me a link" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Use a password instead" })).toBeTruthy();
+    expect(screen.queryByLabelText("Password")).toBeNull();
+  });
+
   it("shows mismatch copy", async () => {
     globalThis.fetch = mock(async () => {
       return new Response(JSON.stringify({ error: { code: "unauthorized", message: "That email and password don’t match." } }), {

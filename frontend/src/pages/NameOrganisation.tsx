@@ -4,7 +4,7 @@ import { createSignal, onMount } from "solid-js";
 import { AuthCard, inputClass, labelClass, primaryButtonClass } from "../components/AuthCard";
 import { VerifyEmailBlock } from "../components/VerifyEmailBlock";
 import { ApiRequestError } from "../lib/api/core";
-import { fetchMe, requestMagicLink } from "../lib/api/auth";
+import { fetchMe, requestVerifyEmail } from "../lib/api/auth";
 import { createOrganisation } from "../lib/api/organisations";
 
 export function NameOrganisationPage() {
@@ -13,20 +13,22 @@ export function NameOrganisationPage() {
   const [error, setError] = createSignal("");
   const [loading, setLoading] = createSignal(false);
   const [blocked, setBlocked] = createSignal("");
-  const [email, setEmail] = createSignal("");
+  const [ready, setReady] = createSignal(false);
   const [resent, setResent] = createSignal(false);
 
   onMount(async () => {
     try {
       const me = await fetchMe();
       if (!me.email_verified_at) {
-        setEmail(me.email);
         setBlocked("Verify your email to continue.");
       }
+      setReady(true);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
         navigate("/signin");
+        return;
       }
+      setReady(true);
     }
   });
 
@@ -52,15 +54,15 @@ export function NameOrganisationPage() {
 
   return (
     <AuthCard title="Name the organisation">
-      {blocked() ? (
+      {ready() && blocked() ? (
         <VerifyEmailBlock
           resent={resent()}
           onResend={async () => {
-            await requestMagicLink(email());
+            await requestVerifyEmail();
             setResent(true);
           }}
         />
-      ) : (
+      ) : ready() ? (
         <>
           <p class="text-sm text-ink-700">What’s the organisation called?</p>
           <form class="flex flex-col gap-4" onSubmit={onSubmit}>
@@ -84,7 +86,7 @@ export function NameOrganisationPage() {
             </button>
           </form>
         </>
-      )}
+      ) : null}
     </AuthCard>
   );
 }

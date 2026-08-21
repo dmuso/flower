@@ -72,7 +72,7 @@ export function SignInPage() {
           </p>
         )}
         <button class={primaryButtonClass} type="submit" disabled={loading()}>
-          {loading() ? "Signing in…" : mode() === "magic" ? "Email me a link" : "Sign in"}
+          {loading() ? (mode() === "magic" ? "Sending…" : "Signing in…") : mode() === "magic" ? "Email me a link" : "Sign in"}
         </button>
         <button
           class={secondaryButtonClass}
@@ -82,7 +82,7 @@ export function SignInPage() {
             setError("");
           }}
         >
-          Email me a link instead
+          {mode() === "password" ? "Email me a link instead" : "Use a password instead"}
         </button>
       </form>
       <p class="text-sm text-ink-700">

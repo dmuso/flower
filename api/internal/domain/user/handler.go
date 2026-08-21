@@ -103,6 +103,19 @@ func (h *Handler) ConsumeVerifyEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, me)
 }
 
+func (h *Handler) ResendVerifyEmail(c *gin.Context) {
+	u := middleware.CurrentUser(c)
+	if u == nil {
+		httpx.Write(c, http.StatusUnauthorized, "unauthorized", "You’re signed out.")
+		return
+	}
+	if err := h.svc.ResendVerifyEmail(c.Request.Context(), u.UserID); err != nil {
+		httpx.From(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 func (h *Handler) Logout(c *gin.Context) {
 	if u := middleware.CurrentUser(c); u != nil {
 		if err := h.svc.Logout(c.Request.Context(), u.SessionID); err != nil {

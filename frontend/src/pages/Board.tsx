@@ -1,7 +1,9 @@
 /** @jsxImportSource solid-js */
-import { useNavigate, useParams } from "@solidjs/router";
-import { Show, createResource } from "solid-js";
+import { A, useNavigate, useParams } from "@solidjs/router";
+import { Match, Switch, createResource } from "solid-js";
 import { EmptyBoard } from "../features/board";
+import { primaryButtonClass } from "../components/AuthCard";
+import { ApiRequestError } from "../lib/api/core";
 import { fetchMe, signOut } from "../lib/api/auth";
 import { fetchProject } from "../lib/api/projects";
 import { fetchStories } from "../lib/api/stories";
@@ -10,9 +12,30 @@ async function loadBoard(projectId: string) {
   const [project, stories, me] = await Promise.all([fetchProject(projectId), fetchStories(projectId), fetchMe()]);
   const org = me.organisations.find((item) => item.id === project.organisation_id);
   if (!org) {
-    throw new Error("organisation not in session");
+    throw new ApiRequestError("We can’t find that.", 404);
   }
   return { project, stories, organisationName: org.name };
+}
+
+function boardError(err: unknown): { signedOut: boolean; copy: string } {
+  if (err instanceof ApiRequestError && err.status === 401) {
+    return { signedOut: true, copy: "You’re signed out." };
+  }
+  return { signedOut: false, copy: "We can’t find that." };
+}
+
+function BoardSkeletons() {
+  return (
+    <div class="flex h-screen flex-col bg-paper" data-testid="board-skeletons">
+      <div class="h-14 border-b border-paper-200 bg-paper" />
+      <div class="flex min-h-0 flex-1 overflow-x-auto">
+        <section class="flex h-full min-w-[22rem] flex-col border-r border-paper-300 bg-paper" data-testid="skeleton-icebox" />
+        <section class="flex h-full min-w-[22rem] flex-col border-r border-paper-300 bg-paper" data-testid="skeleton-backlog" />
+        <section class="flex h-full min-w-[22rem] flex-col border-r border-paper-300 bg-paper" data-testid="skeleton-current" />
+        <section class="flex h-full min-w-[22rem] flex-col border-r border-paper-300 bg-paper" data-testid="skeleton-done" />
+      </div>
+    </div>
+  );
 }
 
 export function BoardPage() {
@@ -26,15 +49,38 @@ export function BoardPage() {
   }
 
   return (
-    <Show when={board()} fallback={<p class="p-4 text-sm text-ink-700">Loading…</p>}>
-      {(state) => (
-        <EmptyBoard
-          organisation={state().organisationName}
-          project={state().project.name}
-          pack={state().stories.pack}
-          onSignOut={onSignOut}
-        />
-      )}
-    </Show>
+    <Switch fallback={<BoardSkeletons />}>
+      <Match when={board.error}>
+        {(() => {
+          const state = boardError(board.error);
+          return (
+            <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 bg-paper px-6 py-16">
+              <p class="text-sm text-ink-700" data-testid="board-error">
+                {state.copy}
+              </p>
+              {state.signedOut ? (
+                <A class={primaryButtonClass} href="/signin">
+                  Sign in
+                </A>
+              ) : (
+                <A class={primaryButtonClass} href="/organisations/new">
+                  Back to your projects
+                </A>
+              )}
+            </main>
+          );
+        })()}
+      </Match>
+      <Match when={board()}>
+        {(state) => (
+          <EmptyBoard
+            organisation={state().organisationName}
+            project={state().project.name}
+            pack={state().stories.pack}
+            onSignOut={onSignOut}
+          />
+        )}
+      </Match>
+    </Switch>
   );
 }

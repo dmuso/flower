@@ -330,3 +330,53 @@ func TestBlankOrganisationAndProjectNames(t *testing.T) {
 		t.Fatalf("blank project: %d %s", proj.Code, proj.Body)
 	}
 }
+
+func TestResendVerifyEmailWritesVerifyEmailNotMagicLink(t *testing.T) {
+	h := testkit.New(t)
+	if res := h.SignUp("maya@example.com", "secret12"); res.Code != http.StatusCreated {
+		t.Fatalf("signup: %d %s", res.Code, res.Body)
+	}
+	login := h.Do(http.MethodPost, "/api/v1/auth/login", map[string]string{
+		"email": "maya@example.com", "password": "secret12",
+	})
+	if login.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", login.Code, login.Body)
+	}
+	cookie := h.SessionCookie(login)
+
+	anon := h.Do(http.MethodPost, "/api/v1/auth/verify-email", nil)
+	if anon.Code != http.StatusUnauthorized {
+		t.Fatalf("anon resend: %d %s", anon.Code, anon.Body)
+	}
+
+	res := h.Do(http.MethodPost, "/api/v1/auth/verify-email", nil, cookie)
+	if res.Code != http.StatusOK {
+		t.Fatalf("resend: %d %s", res.Code, res.Body)
+	}
+
+	query := "SELECT kind FROM email_outbox WHERE to_email = $1 ORDER BY created_at ASC"
+	rows, err := h.DB.Query(query, "maya@example.com")
+	if err != nil {
+		t.Fatalf("outbox: %v", err)
+	}
+	defer rows.Close()
+	var kinds []string
+	for rows.Next() {
+		var kind string
+		if err := rows.Scan(&kind); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		kinds = append(kinds, kind)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+	if len(kinds) != 2 {
+		t.Fatalf("expected 2 outbox rows, got %v", kinds)
+	}
+	for _, kind := range kinds {
+		if kind != "verify_email" {
+			t.Fatalf("expected verify_email, got %q in %v", kind, kinds)
+		}
+	}
+}

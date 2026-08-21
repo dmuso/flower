@@ -58,6 +58,10 @@ export async function consumeVerifyEmail(token: string): Promise<Me> {
   });
 }
 
+export async function requestVerifyEmail(): Promise<void> {
+  await request("/api/v1/auth/verify-email", { method: "POST" });
+}
+
 export async function signOut(): Promise<void> {
   await request("/api/v1/auth/logout", { method: "POST" });
 }
