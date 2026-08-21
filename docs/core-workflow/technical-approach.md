@@ -183,7 +183,7 @@ Use `features/` for board, story, and planning. Keep auth/session helpers in `li
 | 23 Tokens | user settings | page-only is enough | `users.ts` (mint / list / revoke own user) |
 | 23b Webhooks | project settings | page-only | `webhooks.ts` |
 
-The SPA **does not recompute** velocity. It draws Icebox / Backlog / Current / Done from stories plus pack fields the API already calculated (velocity, band, dates). There is no `board` domain and no `/board` API. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
+The SPA **does not recompute** velocity. It draws Icebox / Backlog / Current / Done from stories plus pack fields the API already calculated (velocity, band, dates). There is no `board` domain and no `/board` API. The frontend view is **Board**. Empty is the zero-state of that view when stories are empty. There is no `EmptyBoard` type or component. Tests follow pairing: `Board.tsx` → `Board.test.tsx`. Filename lint already fails `EmptyBoard.test.tsx` once `EmptyBoard.tsx` is gone. UI Designer owns chords, empty copy, and layout in `ui.md`. Implementers must not invent a palette or a private keymap.
 
 ### HTTP mount
 
@@ -902,28 +902,25 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 Delivery increment names (slice 0, slice 1) live in the spec only. They are not domain, not user value, and not filenames.
 
 - A test file is named after the **code file it tests**, in the same package/directory: `app.go` → `app_test.go`, `service.go` → `service_test.go`, `repository.go` → `repository_test.go`.
-- The only extra suffix is integration: `app_integration_test.go`, `service_integration_test.go`.
-- Forbidden: `slice0_test.go`, `slice_0_signup_test.go`, any `*_more_test.go` / `*_extra_test.go` / `*_2_test.go`, or a name that describes the ticket, PR, or increment instead of the unit under test.
-- If tests for one file grow, they stay in that one `*_test.go` (or the integration sibling). Do not add a second file to “fit more in.”
-- Frontend: same idea. `Board.tsx` → `Board.test.ts` (or the repo’s existing suffix next to that file). Not `slice0.test.ts`.
+- Extra suffixes without a sibling source: `_integration_test.go` and `_perf_test.go` only. `_integration_test.go` is for contract / external harness / bootstrap / performance, not leftover unit tests.
+- Forbidden: `slice0_test.go`, `slice0_more_test.go`, `handler_helpers_test.go` (no sibling source), any name that describes the ticket, PR, or increment instead of the unit under test.
+- If tests grow, they stay in that one `*_test.go` (or the integration sibling). Do not add a second file to “fit more in.” Merge increment-named files into the unit they test (`slice0_test.go` → `app_test.go`).
+- Frontend: `Board.tsx` → `Board.test.tsx` (or `.test.ts`) next to it. Allow `*.integration.test.ts(x)`. No `EmptyBoard.tsx` / `EmptyBoard.test.tsx`. Not `slice0.test.ts`.
 - Test function / case names are **black box**: user value, intent, or expected business outcome (`TestSignUpCreatesOrganisationAndFirstProject`). Not `TestSlice0`, `TestApp` with no outcome, or names that mention the increment or “more coverage.”
 - Tests sit beside the code they cover. Prefer the public surface (HTTP, exported service, UI behaviour).
-- Do not name packages, types, migrations, or fixtures `slice0` / `Slice0`. Do not leave increment numbers in code comments as if they were domain.
+- No increment strings in application code, tests, comments, or filenames (`slice0`, `Slice0`, `slice 0`). Spec increment headings may still name the delivery slice.
 
 **Test filename lint**
 
-A small custom checker (not a golangci plugin) walks every `*_test.go`. Hook it in `make lint` so CI cannot go green with a forbidden name present.
+Do **not** use golangci for filenames. A small custom walker is the last step of `make lint`.
 
-Pairing is the rule: stripping `_test.go` must yield a same-directory `<stem>.go`. `service_test.go` needs `service.go`. Overflow and increment names fail because there is no matching source: `slice0_test.go` wants `slice0.go`; `app_more_test.go` wants `app_more.go`; `service_extra_test.go` wants `service_extra.go`; `foo_2_test.go` wants `foo_2.go`. Extra suffixes are not mapped back to the real unit.
+Go (`api/cmd/tools/testfilenamelint`): walk `*_test.go`. Allow only if a same-directory `<stem>.go` exists, or the name ends `_integration_test.go` / `_perf_test.go`. That pairing is what rejects `slice0_test.go`, `slice0_more_test.go`, and `handler_helpers_test.go` (no sibling source). Wire: `go run ./cmd/tools/testfilenamelint .` from the API lint target, last. Unit-test the walker (match allowed / integration allowed / extra suffix reject).
 
-- Allow only `<stem>_integration_test.go` without a matching source (no `_more_`, `_extra_`, `_helpers_`, `_benchmark_`, ticket, or increment names as extra kinds).
-- If tests grow, merge into the existing `*_test.go` (or the integration sibling). Do not add a second file.
-- Also reject `slice[0-9]`, `_more_`, `_extra_`, and `_N_` in the basename even if someone adds a matching dummy `.go`.
-- Frontend twin: `Board.tsx` → `Board.test.ts` / `Board.test.tsx` next to it. Allow `*.integration.test.ts(x)`. Reject `slice0.test.ts` and extra mid-suffixes (`Widget.design.test.tsx`).
-- Error on stderr, exit 1: `<path>: unit test files must be named <code_file>_test.go with a same-directory <code_file>.go, or use <domain>_integration_test.go.` then `Test file name lint failed with N issue(s).`
-- No per-file allowlist. Skip only `.git` / `tmp` (and frontend `node_modules` / `dist`).
-- Invoke from the API as `go run ./cmd/tools/testfilenamelint .` and from the frontend lint script. Root `make lint` runs both. CI runs that same `make lint`.
-- Technical Lead owns the check; Developer keeps it green; QA fails a PR that ships forbidden names even if behaviour is right.
+Frontend (`frontend/scripts/test-file-name-lint.ts`): walk `*.test.ts(x)`. Allow iff a sibling `.ts` / `.tsx` exists, or the name ends `.integration.test.ts(x)`. Invoke from the package `lint` script so CI `lint:ci` includes it.
+
+Error on stderr, exit 1: `<path>: unit test files must be named <code_file>_test.go with a same-directory <code_file>.go, or use <domain>_integration_test.go / <domain>_perf_test.go.` then `Test file name lint failed with N issue(s).` No per-file allowlist. Skip only `.git` / `tmp` (and frontend `node_modules` / `dist`).
+
+Technical Lead owns the walker; Developer keeps it green; QA fails a PR that ships forbidden names even if behaviour is right.
 
 **Types and API**
 
