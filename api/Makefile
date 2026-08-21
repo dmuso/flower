@@ -36,6 +36,7 @@ test: ## Run tests
 lint: ## Run linting
 	@echo "Running linting..."
 	@golangci-lint run ./cmd/... ./internal/...
+	@go run ./cmd/tools/testfilenamelint .
 
 clean: ## Clean up build artefacts
 	@echo "Cleaning up build artefacts..."

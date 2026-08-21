@@ -84,7 +84,7 @@ domain/ ──────► ports/ ◄────── platform/
 
 Constraints:
 
-- Domain packages must not import each other directly; cross-domain contracts go in `ports/`.
+- Domain packages must not import each other directly; cross-domain contracts go in `ports/`. `story` must not import `planning`. Inject pack via `ports.Planner` (implemented by `planning`, wired in `app/`). `story` SQL is `stories` only; do not have `story` load project settings.
 - Keep files under 500 lines where practical.
 - Wiring packages (`app/`, `handlers/`, bootstrap helpers) are allowed higher coupling.
 - Prefer explicit imports over unused dependency injection.
@@ -101,9 +101,9 @@ Add as the slice lands, under `api/internal/domain/` — **not** under `app/`.
 | Auth / identity + user tokens | `user` (or `auth` if login is its own boundary) | Handler + repository + type; session cookie hashing stays in `platform/auth`. API tokens are a user credential on this domain. |
 | Organisations | `organisation` | Handler / service / repository / type; bootstrap seeding as a subpackage if needed. |
 | Projects + membership | `project` | Same four files; roles live here or in `permission`. Owns iteration **length in days** and other project settings. |
-| Stories | `story` | Create, schedule, icebox, estimate, transition. |
+| Stories | `story` | Create, schedule, icebox, estimate, transition. Does not import `planning`. Pack via `ports.Planner`. |
 | Rank | `story/rank` | Keep with story unless another domain must own it. |
-| Planning / velocity | `planning` | Pure `velocity` + `pack`. A calculation. Persists nothing. |
+| Planning / velocity | `planning` | Pure `velocity` + `pack`. Implements `ports.Planner`. A calculation. Persists nothing. |
 | Tenancy / 404-vs-403 | `tenancy` or inside `organisation` + `permission` | Effective role. |
 
 Typical domain package:
@@ -135,7 +135,7 @@ Shared engines written with the first slice that needs them, tested in isolation
 
 - `domain/story/machine` — type-specific verbs. Feature machine is used in Phase 0. Bug / Chore / Release tables are coded in the **same** package when the Feature machine lands (product: machines are specified now so later slices do not invent a second workflow). UI and create-story only expose Feature until slice 18.
 - `domain/story/rank` — fractional `VARCHAR(64)` generate / compare / illegal-rank check.
-- `domain/planning` — velocity formula + pack algorithm. Velocity doc is normative. Pack does **not** persist a time-box assignment on the story.
+- `domain/planning` — velocity formula + pack algorithm. Implements `ports.Planner`. `story` does not import this package. Velocity doc is normative. Pack does **not** persist a time-box assignment on the story.
 - `domain/tenancy` — organisation scope, effective role, 404-vs-403.
 
 ### Frontend map
@@ -195,7 +195,7 @@ SPA origin is `:4273`, API is `:8180` (cross-origin, same-site on localhost). CO
 
 ### What must not be disturbed
 
-- Intended tables: `users`, `organisations`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`, `api_tokens`. New slices add tables and columns. They do not invent an iteration table, or a story-to-window foreign key.
+- Intended tables: `users`, `organisations`, `projects`, `project_memberships`, `stories`, `labels`, `story_labels`, `activities`, `api_tokens`. There is no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks`. Length is `iteration_length_days`. Activities use `user_id`. New slices add tables and columns.
 - `stories.rank VARCHAR(64)` fractional / lexicographic. Do not switch to integer priority.
 - `stories.title VARCHAR(500)` — product max is 500.
 - `story_type` and `state` as strings. No DB enums, checks-as-enums, triggers, or functions.
@@ -213,14 +213,16 @@ SPA origin is `:4273`, API is `:8180` (cross-origin, same-site on localhost). CO
 
 - `users`: `id`, `username` UNIQUE NOT NULL, `email` UNIQUE NOT NULL, `password_hash` nullable (magic-link-only), `display_name` NOT NULL, `email_verified_at`, timestamps as `TIMESTAMP`.
 - `organisations`, `organisation_memberships`.
-- `projects`: `id`, `organisation_id`, `name`, `slug` unique per organisation, `description`, `point_scale`, `timezone`, `velocity_strategy`, `initial_velocity`, `iteration_start_weekday`, **`iteration_length_days`**.
+- `projects`: `id`, `organisation_id`, `name`, `slug` unique per organisation, `description`, `point_scale`, `timezone`, `velocity_strategy`, `initial_velocity`, `iteration_start_weekday`, **`iteration_length_days`**. No `iteration_length_weeks`.
 - `project_memberships`: `role VARCHAR(50)` — `owner` \| `member` \| `viewer` in Go. Unique `(project_id, user_id)`.
-- `stories`: `requester_id` RESTRICT, `estimate INTEGER` nullable, `rank VARCHAR(64)`, `rank_list`, `revision`, `started_at`, `accepted_at`. No window foreign key. Unique `(project_id, rank_list, rank)`.
+- `stories`: `requester_id` RESTRICT, `estimate INTEGER` nullable, `rank VARCHAR(64)`, `rank_list`, `revision`, `started_at`, `accepted_at`. No `iteration_id`. Unique `(project_id, rank_list, rank)`.
 - `labels.name VARCHAR(100)`, unique `(project_id, name)`.
 - `activities`: `kind`, `summary`, **`user_id`** RESTRICT, `story_id` nullable SET NULL.
 - `api_tokens`: belongs to `user_id`.
 
-There is no `iterations` table. Stories do not store a window id.
+There is no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks`. Length is `iteration_length_days`. Activities use `user_id`.
+
+Slice 0’s additive migration produces this schema: `DROP` the `iterations` table, `DROP stories.iteration_id` (index and foreign key), `DROP projects.iteration_length_weeks`. Do not keep a dummy weeks column. Writes use `iteration_length_days` only.
 
 `NULL` estimate = unestimated. `0` is an estimate. Do not store `-1`. Search `estimate:-1` (slice 22) means `estimate IS NULL`.
 
@@ -246,7 +248,7 @@ organisation_memberships
   UNIQUE (organisation_id, user_id)
 ```
 
-**Add to `projects` (do not rewrite the table):**
+**Projects (slice 0):**
 
 - `organisation_id UUID NOT NULL` → `organisations` RESTRICT (or CASCADE if product later allows org delete — **unspecified**; use RESTRICT so an organisation with projects cannot disappear).
 - Drop `idx_projects_slug`. Create `UNIQUE (organisation_id, slug)`.
@@ -650,7 +652,7 @@ Only what a slice cannot ship without. No drive-by.
 | `users.password_hash` nullable | Magic-link-only users; `NOT NULL` plus a dummy hash would be a fallback | 0 |
 | `UNIQUE (project_id, rank)` → `UNIQUE (project_id, rank_list, rank)` | Two lists, one `VARCHAR(64)` column | 2 |
 | Add `organisation_id` / timezone / velocity settings / `iteration_length_days` on `projects` | Missing vs product; do not recreate `projects` | 0 / 8 |
-| Do not add an iteration table or a story window FK | Planning is a calculation | 8 |
+| Slice 0 additive migration: no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks` | Intended schema. Length is `iteration_length_days`. Do not keep a dummy weeks column. | 0 |
 | Add `revision`, `rank_list`, `started_at` on `stories` | Concurrency, two lists, cycle-time later | 2 / 4 |
 | Add `email_verified_at` on `users` | Slice 0 AC | 0 |
 
@@ -674,7 +676,7 @@ Only what a slice cannot ship without. No drive-by.
 | Risk | Why it is real | Mitigation |
 | --- | --- | --- |
 | Planner drift from the velocity doc | Easy to “improve” leave-short or oversized Features | Pure `Pack` + table tests for **all three** worked examples in the velocity doc; QA script in that file; velocity doc wins reviews |
-| Inventing an iteration table | Easy to persist bands or velocity | Pack and velocity are functions. Persist nothing. Tests assert no window FK |
+| Inventing an iteration table or a dummy weeks column | Easy to persist bands or keep `iteration_length_weeks` so inserts succeed | Pack and velocity are functions. Persist nothing. Tests assert no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks` |
 | Clock vs project timezone | Window end is midnight in the project timezone | Injected `Clock`; test env clock endpoint; crossing is a read, not a write |
 | Rank unique collisions / 64-char overflow | Two lists; midpoint can grow | `rank_list` in the unique key; rebalance in-transaction; tests at the 64-char edge |
 | Cross-tenant leaks (id guess, search, files, tokens) | Multitenant from day one | Every query joins organisation; miss → 404; attachment GET checks org+project+auth; isolation tests ride slices 0, 1, 23 |
@@ -895,6 +897,31 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 - Do not ignore test, script, or lint errors.
 - Documentation-only changes: review the diff; do not run the code gates unless code changed.
 
+**Test filenames and names**
+
+Delivery increment names (slice 0, slice 1) live in the spec only. They are not domain, not user value, and not filenames.
+
+- A test file is named after the **code file it tests**, in the same package/directory: `app.go` → `app_test.go`, `service.go` → `service_test.go`, `repository.go` → `repository_test.go`.
+- Extra suffixes without a sibling source: `_integration_test.go` and `_perf_test.go` only. `_integration_test.go` is for contract / external harness / bootstrap / performance, not leftover unit tests.
+- Forbidden: `slice0_test.go`, `slice0_more_test.go`, `handler_helpers_test.go` (no sibling source), any name that describes the ticket, PR, or increment instead of the unit under test.
+- If tests grow, they stay in that one `*_test.go` (or the integration sibling). Do not add a second file to “fit more in.” Merge increment-named files into the unit they test (`slice0_test.go` → `app_test.go`).
+- Frontend: `Board.tsx` → `Board.test.ts` / `Board.test.tsx` next to it. Allow `*.integration.test.ts(x)`. Not `slice0.test.ts`.
+- Test function / case names are **black box**: user value, intent, or expected business outcome (`TestSignUpCreatesOrganisationAndFirstProject`). Not `TestSlice0`, `TestApp` with no outcome, or names that mention the increment or “more coverage.”
+- Tests sit beside the code they cover. Prefer the public surface (HTTP, exported service, UI behaviour).
+- Do not name packages, types, migrations, or comments `slice0` / `Slice0`.
+
+**Test filename lint**
+
+Do **not** use golangci for filenames. A small custom walker is the last step of `make lint`.
+
+Go (`api/cmd/tools/testfilenamelint`): walk `*_test.go`. Allow only if a same-directory `<stem>.go` exists, or the name ends `_integration_test.go` / `_perf_test.go`. That pairing is what rejects `slice0_test.go`, `slice0_more_test.go`, and `handler_helpers_test.go` (no sibling source). Wire: `go run ./cmd/tools/testfilenamelint .` from the API lint target, last. Unit-test the walker (match allowed / integration allowed / extra suffix reject).
+
+Frontend (`frontend/scripts/test-file-name-lint.ts`): walk `*.test.ts(x)`. Allow iff a sibling `.ts` / `.tsx` exists, or the name ends `.integration.test.ts(x)`. Invoke from the package `lint` script so CI `lint:ci` includes it.
+
+Error on stderr, exit 1: `<path>: unit test files must be named <code_file>_test.go with a same-directory <code_file>.go, or use <domain>_integration_test.go / <domain>_perf_test.go.` then `Test file name lint failed with N issue(s).` No per-file allowlist. Skip only `.git` / `tmp` (and frontend `node_modules` / `dist`).
+
+Technical Lead owns the walker; Developer keeps it green; QA fails a PR that ships forbidden names even if behaviour is right.
+
 **Types and API**
 
 - Go: wrap with `fmt.Errorf("%w")`. Structured Zap fields: `component`, `operation`, `organisation_id`, `project_id`, `user_id`. Never log passwords, raw session/magic/token/webhook secrets, or Authorization headers.
@@ -907,7 +934,7 @@ From repo `AGENTS.md` and `api/internal/migrations/AGENTS.md`. Non-negotiable.
 - No DB enums, triggers, or functions. Plural table names. UUID `id` PKs.
 - Australian / New Zealand / UK names (`organisations`).
 - Name migration files with `date +%Y%m%d%H%M%S`.
-- Additive columns and new tables. Do not add an iteration table or a story window FK.
+- Additive columns and new tables, plus the slice 0 drops that produce the intended schema: no `iterations` table, no `stories.iteration_id`, no `projects.iteration_length_weeks`. Do not keep a dummy weeks column. Do not add an iteration table or a story window FK later.
 - `point_scale` / `role` / `state` / `story_type` stay strings.
 
 **Logging and config**

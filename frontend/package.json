@@ -8,7 +8,8 @@
     "build": "bun run scripts/build.ts",
     "serve": "bun run scripts/serve.ts",
     "check": "tsc --noEmit",
-    "lint": "bunx oxlint --config oxlint.json src scripts",
+    "lint": "bunx oxlint --config oxlint.json src scripts && bun run scripts/test-file-name-lint.ts",
+    "lint:ci": "bun run lint",
     "test": "bun test --preload ./test-setup.ts --timeout 5000 src scripts",
     "tailwind:build": "bunx tailwindcss -i ./src/styles/app.css -o ./src/styles/tailwind.css",
     "tailwind:watch": "bunx tailwindcss -i ./src/styles/app.css -o ./src/styles/tailwind.css --watch"
